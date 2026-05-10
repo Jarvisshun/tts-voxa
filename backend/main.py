@@ -9,7 +9,7 @@ import sys
 import webbrowser
 import threading
 
-from routers import tts, clone, design, batch, voices, history
+from routers import tts, clone, design, batch, voices, history, config
 from models.database import init_db
 
 
@@ -37,6 +37,7 @@ app.include_router(design.router, prefix="/api/design", tags=["Voice Design"])
 app.include_router(batch.router, prefix="/api/batch", tags=["Batch"])
 app.include_router(voices.router, prefix="/api/voices", tags=["Voices"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
+app.include_router(config.router, prefix="/api/config", tags=["Config"])
 
 audio_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "audio_store")
 os.makedirs(audio_dir, exist_ok=True)
@@ -46,19 +47,6 @@ app.mount("/audio", StaticFiles(directory=audio_dir), name="audio")
 @app.on_event("startup")
 async def startup():
     await init_db()
-
-
-@app.get("/api/models")
-async def get_models():
-    return {
-        "success": True,
-        "data": [
-            {"id": "mimo-v2.5-tts", "name": "MiMo V2.5 TTS", "type": "basic"},
-            {"id": "mimo-v2-tts", "name": "MiMo V2 TTS", "type": "basic"},
-            {"id": "mimo-v2.5-tts-voiceclone", "name": "MiMo V2.5 VoiceClone", "type": "clone"},
-            {"id": "mimo-v2.5-tts-voicedesign", "name": "MiMo V2.5 VoiceDesign", "type": "design"},
-        ],
-    }
 
 
 @app.get("/api/voices/presets")

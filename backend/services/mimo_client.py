@@ -1,13 +1,13 @@
 import httpx
 import base64
 import json
-from utils.config import MIMO_API_KEY, MIMO_API_BASE
 
 
 class MiMoClient:
-    def __init__(self):
-        self.api_base = MIMO_API_BASE
-        self.api_key = MIMO_API_KEY
+    def __init__(self, api_key: str = "", api_base: str = ""):
+        from utils.config import MIMO_API_KEY, MIMO_API_BASE
+        self.api_base = api_base or MIMO_API_BASE
+        self.api_key = api_key or MIMO_API_KEY
 
     def _headers(self):
         return {
@@ -164,6 +164,14 @@ class MiMoClient:
                 "audio": data["choices"][0]["message"]["audio"]["data"],
                 "format": format,
             }
+
+
+async def get_client_for_provider(db) -> MiMoClient:
+    from routers.config import get_default_provider
+    provider = await get_default_provider(db)
+    if provider:
+        return MiMoClient(api_key=provider["api_key"], api_base=provider["api_base"])
+    return MiMoClient()
 
 
 mimo_client = MiMoClient()

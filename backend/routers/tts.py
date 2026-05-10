@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from models.schemas import TTSRequest
-from services.mimo_client import mimo_client
+from services.mimo_client import get_client_for_provider
 from utils.audio import save_audio
 from models.database import get_db
 import uuid
@@ -11,9 +11,10 @@ router = APIRouter()
 
 
 @router.post("/synthesize")
-async def synthesize(req: TTSRequest):
+async def synthesize(req: TTSRequest, db=Depends(get_db)):
     try:
-        result = await mimo_client.tts(
+        client = await get_client_for_provider(db)
+        result = await client.tts(
             text=req.text,
             model=req.model,
             voice=req.voice,
@@ -40,10 +41,12 @@ async def synthesize(req: TTSRequest):
 
 
 @router.post("/stream")
-async def synthesize_stream(req: TTSRequest):
+async def synthesize_stream(req: TTSRequest, db=Depends(get_db)):
+    client = await get_client_for_provider(db)
+
     async def event_generator():
         try:
-            async for chunk in mimo_client.tts_stream(
+            async for chunk in client.tts_stream(
                 text=req.text,
                 model=req.model,
                 voice=req.voice,

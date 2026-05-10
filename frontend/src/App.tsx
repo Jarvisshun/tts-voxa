@@ -4,6 +4,7 @@ import VoiceClone from './pages/VoiceClone'
 import VoiceDesign from './pages/VoiceDesign'
 import BatchProcess from './pages/BatchProcess'
 import History from './pages/History'
+import Settings from './pages/Settings'
 
 const tabs = [
   { id: 'tts', label: 'TTS 工作台', icon: '🎤' },
@@ -11,6 +12,7 @@ const tabs = [
   { id: 'design', label: '声音设计', icon: '🎨' },
   { id: 'batch', label: '批量处理', icon: '📦' },
   { id: 'history', label: '历史记录', icon: '📋' },
+  { id: 'settings', label: '设置', icon: '⚙️' },
 ]
 
 function App() {
@@ -23,6 +25,7 @@ function App() {
       case 'design': return <VoiceDesign />
       case 'batch': return <BatchProcess />
       case 'history': return <History />
+      case 'settings': return <Settings />
       default: return <TTSWorkbench />
     }
   }
@@ -32,7 +35,7 @@ function App() {
       <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-white">MiMo TTS Studio</h1>
-          <span className="text-sm text-slate-400">基于小米 MiMo TTS 系列模型</span>
+          <span className="text-sm text-slate-400">多模型 TTS 语音创作平台</span>
         </div>
       </header>
 

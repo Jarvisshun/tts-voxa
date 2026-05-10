@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from models.schemas import BatchCreateRequest
-from services.mimo_client import mimo_client
+from services.mimo_client import get_client_for_provider
 from utils.audio import save_audio
+from models.database import get_db
 import uuid
 import asyncio
 
@@ -11,8 +12,11 @@ batch_jobs: dict[str, dict] = {}
 
 
 @router.post("/create")
-async def create_batch(req: BatchCreateRequest):
+async def create_batch(req: BatchCreateRequest, db=Depends(get_db)):
     job_id = f"job_{uuid.uuid4().hex[:12]}"
+
+    client = await get_client_for_provider(db)
+
     batch_jobs[job_id] = {
         "job_id": job_id,
         "name": req.name,
@@ -25,6 +29,7 @@ async def create_batch(req: BatchCreateRequest):
         "speed": req.speed,
         "texts": req.texts,
         "results": [],
+        "client": client,
     }
 
     asyncio.create_task(_process_batch(job_id))
@@ -56,10 +61,11 @@ async def get_batch_status(job_id: str):
 async def _process_batch(job_id: str):
     job = batch_jobs[job_id]
     job["status"] = "running"
+    client = job["client"]
 
     for i, text in enumerate(job["texts"]):
         try:
-            result = await mimo_client.tts(
+            result = await client.tts(
                 text=text,
                 model=job["model"],
                 voice=job["voice"],

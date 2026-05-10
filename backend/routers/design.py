@@ -1,16 +1,18 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from models.schemas import VoiceDesignRequest
-from services.mimo_client import mimo_client
+from services.mimo_client import get_client_for_provider
 from utils.audio import save_audio
+from models.database import get_db
 import uuid
 
 router = APIRouter()
 
 
 @router.post("/generate")
-async def generate_voice(req: VoiceDesignRequest):
+async def generate_voice(req: VoiceDesignRequest, db=Depends(get_db)):
     try:
-        result = await mimo_client.voice_design(
+        client = await get_client_for_provider(db)
+        result = await client.voice_design(
             description=req.description,
             text=req.text,
             format=req.format.value,

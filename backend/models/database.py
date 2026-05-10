@@ -53,4 +53,15 @@ async def init_db():
                 completed_at DATETIME
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS providers (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                api_key TEXT NOT NULL,
+                api_base TEXT NOT NULL,
+                models TEXT NOT NULL DEFAULT '[]',
+                is_default INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
         await db.commit()

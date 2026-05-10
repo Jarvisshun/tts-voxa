@@ -1,22 +1,23 @@
 import { useState, useRef, useEffect } from 'react'
-import { synthesizeTTS, type TTSRequest } from '../api/client'
+import { synthesizeTTS, getModels, getPresets, type TTSRequest } from '../api/client'
 
-const PRESET_VOICES = [
-  { id: 'mimo_default', name: '默认', style: '标准音色' },
-  { id: '冰糖', name: '冰糖', style: '甜美女声' },
-  { id: '茉莉', name: '茉莉', style: '温柔女声' },
-  { id: '苏打', name: '苏打', style: '活泼女声' },
-  { id: '白桦', name: '白桦', style: '沉稳男声' },
-  { id: 'Mia', name: 'Mia', style: '英文女声' },
-  { id: 'Chloe', name: 'Chloe', style: '英文女声' },
-  { id: 'Milo', name: 'Milo', style: '英文男声' },
-  { id: 'Dean', name: 'Dean', style: '英文男声' },
-]
+interface ModelItem {
+  id: string
+  name: string
+  type: string
+  provider?: string
+}
+
+interface VoiceItem {
+  id: string
+  name: string
+  style: string
+}
 
 export default function TTSWorkbench() {
-  const [text, setText] = useState('你好，欢迎使用 MiMo TTS Studio！这是一段测试文本。')
+  const [text, setText] = useState('你好，欢迎使用 TTS Studio！这是一段测试文本。')
   const [voice, setVoice] = useState('mimo_default')
-  const [model, setModel] = useState('mimo-v2.5-tts')
+  const [model, setModel] = useState('')
   const [speed, setSpeed] = useState(1.0)
   const [emotion, setEmotion] = useState('')
   const [format, setFormat] = useState('wav')
@@ -24,6 +25,23 @@ export default function TTSWorkbench() {
   const [audioSrc, setAudioSrc] = useState('')
   const [error, setError] = useState('')
   const audioRef = useRef<HTMLAudioElement>(null)
+
+  const [models, setModels] = useState<ModelItem[]>([])
+  const [voices, setVoices] = useState<VoiceItem[]>([
+    { id: 'mimo_default', name: '默认', style: '标准音色' },
+  ])
+
+  useEffect(() => {
+    getModels().then(res => {
+      if (res.success && res.data.length > 0) {
+        setModels(res.data)
+        if (!model) setModel(res.data[0].id)
+      }
+    }).catch(() => {})
+    getPresets().then(res => {
+      if (res.success) setVoices(res.data)
+    }).catch(() => {})
+  }, [])
 
   const handleSynthesize = async () => {
     if (!text.trim()) return
@@ -87,8 +105,15 @@ export default function TTSWorkbench() {
                 onChange={e => setModel(e.target.value)}
                 className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-sm text-slate-200"
               >
-                <option value="mimo-v2.5-tts">V2.5 TTS</option>
-                <option value="mimo-v2-tts">V2 TTS</option>
+                {models.length > 0 ? (
+                  models.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}{m.provider ? ` (${m.provider})` : ''}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">请先在设置中配置服务商</option>
+                )}
               </select>
             </div>
 
@@ -135,7 +160,7 @@ export default function TTSWorkbench() {
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">选择音色</label>
           <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {PRESET_VOICES.map(v => (
+            {voices.map(v => (
               <button
                 key={v.id}
                 onClick={() => setVoice(v.id)}
@@ -156,7 +181,7 @@ export default function TTSWorkbench() {
       {/* Generate Button */}
       <button
         onClick={handleSynthesize}
-        disabled={loading || !text.trim()}
+        disabled={loading || !text.trim() || !model}
         className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-medium transition-colors"
       >
         {loading ? '正在合成...' : '开始合成'}

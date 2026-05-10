@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from services.mimo_client import mimo_client
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
+from services.mimo_client import get_client_for_provider
 from utils.audio import save_audio, read_audio_to_base64, get_audio_format
 from utils.config import MAX_FILE_SIZE
+from models.database import get_db
 import uuid
 import os
 
@@ -14,16 +15,18 @@ async def clone_synthesize(
     text: str = Form(...),
     format: str = Form(default="wav"),
     emotion: str = Form(default=None),
+    db=Depends(get_db),
 ):
     content = await audio.read()
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="Audio file too large (max 10MB)")
 
-    audio_base64 = read_audio_to_base64_from_bytes(content)
+    audio_base64 = _encode_bytes(content)
     audio_fmt = get_audio_format(audio.filename or "audio.wav")
 
     try:
-        result = await mimo_client.voice_clone(
+        client = await get_client_for_provider(db)
+        result = await client.voice_clone(
             text=text,
             audio_base64=audio_base64,
             audio_format=audio_fmt,
@@ -69,7 +72,6 @@ async def save_clone_voice(
     }
 
 
-def read_audio_to_base64_from_bytes(content: bytes) -> str:
+def _encode_bytes(content: bytes) -> str:
     import base64
-
     return base64.b64encode(content).decode("utf-8")
