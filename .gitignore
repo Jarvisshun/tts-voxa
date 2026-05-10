@@ -6,6 +6,7 @@ dist/
 build/
 _release/
 _release_*/
+output/
 *.spec
 *.egg
 .venv/

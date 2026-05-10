@@ -15,7 +15,17 @@ from models.database import init_db
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
-        return sys._MEIPASS
+        # Try multiple locations for static files
+        exe_dir = os.path.dirname(sys.executable)
+        candidates = [
+            getattr(sys, "_MEIPASS", ""),
+            os.path.join(exe_dir, "_internal"),
+            exe_dir,
+        ]
+        for candidate in candidates:
+            if candidate and os.path.isdir(os.path.join(candidate, "static")):
+                return candidate
+        return getattr(sys, "_MEIPASS", exe_dir)
     return os.path.dirname(os.path.abspath(__file__))
 
 
