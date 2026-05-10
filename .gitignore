@@ -43,3 +43,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Android
+*.apk
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/capacitor-cordova-android-plugins/build/
+frontend/android/app/tts-voxa.keystore
+
+# Backend static (build artifacts)
+backend/static/

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { getHistory } from '../api/client'
+import { getHistory, getAudioDataUrlForHistory } from '../api/client'
+import { isNative } from '../platform'
 import WaveformPlayer from '../components/WaveformPlayer'
 
 export default function History() {
@@ -7,6 +8,7 @@ export default function History() {
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [audioUrls, setAudioUrls] = useState<Record<string, string>>({})
 
   const loadHistory = async (p: number) => {
     setLoading(true)
@@ -15,6 +17,17 @@ export default function History() {
       if (resp.success) {
         setItems(resp.data.items)
         setTotal(resp.data.total)
+        if (isNative()) {
+          const urls: Record<string, string> = {}
+          for (const item of resp.data.items) {
+            if (item.audio_path) {
+              try {
+                urls[item.id] = await getAudioDataUrlForHistory(item.id, item.format || 'wav')
+              } catch {}
+            }
+          }
+          setAudioUrls(urls)
+        }
       }
     } catch {} finally {
       setLoading(false)
@@ -59,7 +72,7 @@ export default function History() {
               </div>
               {item.audio_path && (
                 <div className="mt-3">
-                  <WaveformPlayer audioSrc={`/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                  <WaveformPlayer audioSrc={isNative() ? (audioUrls[item.id] || '') : `/audio/${item.audio_path.split('/').pop()}`} height={32} />
                 </div>
               )}
             </div>

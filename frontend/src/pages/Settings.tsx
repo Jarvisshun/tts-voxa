@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getVersion, checkUpdate } from '../api/client'
 import type { UpdateInfo } from '../api/client'
+import { isNative } from '../platform'
 
 interface Provider {
   id: string
@@ -33,6 +34,9 @@ export default function Settings() {
   const [currentVersion, setCurrentVersion] = useState('')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [downloadProgress, setDownloadProgress] = useState(0)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   useEffect(() => {
     getVersion().then(d => setCurrentVersion(d.version)).catch(() => {})
@@ -51,12 +55,35 @@ export default function Settings() {
     }
   }
 
+  const handleDownloadUpdate = async () => {
+    if (!updateInfo?.download_url) return
+    if (isNative()) {
+      setDownloading(true)
+      setDownloadProgress(0)
+      try {
+        const { downloadApk } = await import('../storage/audioStorage')
+        const uri = await downloadApk(updateInfo.download_url, setDownloadProgress)
+        window.open(uri, '_system')
+      } catch (e: any) {
+        setUpdateInfo(prev => prev ? { ...prev, error: `下载失败: ${e.message}` } : prev)
+      } finally {
+        setDownloading(false)
+      }
+    } else {
+      window.open(updateInfo.download_url, '_blank')
+    }
+  }
+
   const fetchProviders = async () => {
     try {
-      const resp = await fetch('/api/config/providers')
-      const data = await resp.json()
-      if (data.success) setProviders(data.data)
-    } catch {}
+      const { getProviders } = await import('../api/client')
+      const data = await getProviders()
+      if (data.success && Array.isArray(data.data)) {
+        setProviders(data.data)
+      }
+    } catch (e) {
+      console.error('fetchProviders error:', e)
+    }
   }
 
   useEffect(() => { fetchProviders() }, [])
@@ -69,12 +96,14 @@ export default function Settings() {
     if (!name.trim() || !apiKey.trim() || !apiBase.trim()) return
     setLoading(true)
     try {
-      const body = { name: name.trim(), api_key: apiKey.trim(), api_base: apiBase.trim(), models: parseModels(), is_default: isDefault }
-      const url = editingId ? `/api/config/providers/${editingId}` : '/api/config/providers'
-      const method = editingId ? 'PUT' : 'POST'
-      const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      const data = await resp.json()
-      if (data.success) { resetForm(); fetchProviders() }
+      const { addProvider, updateProvider } = await import('../api/client')
+      const models = parseModels()
+      if (editingId) {
+        await updateProvider(editingId, name.trim(), apiKey.trim(), apiBase.trim(), models, isDefault)
+      } else {
+        await addProvider(name.trim(), apiKey.trim(), apiBase.trim(), models, isDefault)
+      }
+      resetForm(); fetchProviders()
     } catch (e: any) {
       setTestResult({ type: 'error', message: e.message })
     } finally { setLoading(false) }
@@ -85,12 +114,8 @@ export default function Settings() {
     setLoading(true)
     setTestResult(null)
     try {
-      const resp = await fetch('/api/config/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'test', api_key: apiKey.trim(), api_base: apiBase.trim(), models: [] }),
-      })
-      const data = await resp.json()
+      const { testConnection } = await import('../api/client')
+      const data = await testConnection(apiKey.trim(), apiBase.trim())
       setTestResult({ type: data.success ? 'success' : 'error', message: data.message })
     } catch (e: any) {
       setTestResult({ type: 'error', message: e.message })
@@ -98,8 +123,22 @@ export default function Settings() {
   }
 
   const handleDelete = async (id: string) => {
+    if (isNative()) {
+      setConfirmDelete(id)
+      return
+    }
     if (!confirm('确定删除此服务商？')) return
-    await fetch(`/api/config/providers/${id}`, { method: 'DELETE' })
+    const { deleteProvider } = await import('../api/client')
+    await deleteProvider(id)
+    fetchProviders()
+  }
+
+  const confirmDeleteProvider = async () => {
+    if (!confirmDelete) return
+    const id = confirmDelete
+    setConfirmDelete(null)
+    const { deleteProvider } = await import('../api/client')
+    await deleteProvider(id)
     fetchProviders()
   }
 
@@ -304,11 +343,17 @@ export default function Settings() {
                   </div>
                 )}
                 <button
-                  onClick={() => updateInfo.download_url && window.open(updateInfo.download_url, '_blank')}
-                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-xl text-sm font-medium text-white transition-all shadow-sm"
+                  onClick={handleDownloadUpdate}
+                  disabled={downloading}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm"
                 >
-                  下载更新
+                  {downloading ? `下载中 ${downloadProgress}%` : '下载更新'}
                 </button>
+                {downloading && (
+                  <div className="mt-2 w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: `${downloadProgress}%` }} />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">
@@ -321,6 +366,24 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      {/* Confirm Delete Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmDelete(null)}>
+          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">确认删除</h3>
+            <p className="text-sm text-gray-500 mb-5">确定删除此服务商？删除后无法恢复。</p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl transition-all">
+                取消
+              </button>
+              <button onClick={confirmDeleteProvider} className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all">
+                删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -31,7 +31,16 @@ A one-stop voice creation platform powered by Xiaomi MiMo TTS models.
 - 数据保存在用户本地磁盘，关闭重启不丢失
 - 应用内可检查版本更新
 
-#### 方式二：本地化部署（开发者）
+#### 方式二：下载 Android 安装包
+
+前往 [Releases](https://github.com/Jarvisshun/tts-voxa/releases) 页面下载最新版本的 `TTS-Voxa-vX.X.X.apk`，在手机上直接安装即可。
+
+- 适配所有主流安卓手机（Android 6.0+）
+- 数据保存在手机本地，关闭重启不丢失
+- 应用内可检查版本更新，支持直接下载安装新版本
+- 安装包可通过微信等方式分享
+
+#### 方式三：本地化部署（开发者）
 
 ```bash
 # 1. 克隆仓库
@@ -93,6 +102,7 @@ MIMO_API_BASE=https://token-plan-sgp.xiaomimimo.com/v1
 ### v2.1 新功能
 
 - **独立桌面应用**：exe 版本打开后直接显示应用窗口（基于 Edge WebView2），无需外部浏览器
+- **Android 手机应用**：基于 Capacitor 构建的原生 Android 应用，数据本地存储，支持应用内更新
 - **版本更新检查**：设置页面可检查 GitHub 最新版本，显示更新日志和下载链接
 
 ### v2.0 功能
@@ -113,7 +123,8 @@ MIMO_API_BASE=https://token-plan-sgp.xiaomimimo.com/v1
 | 后端 | Python 3.11+ FastAPI + aiosqlite |
 | 存储 | SQLite（WAL 模式，支持并发） |
 | 音频 | WaveSurfer.js 波形可视化 + MediaRecorder API 录音 |
-| 打包 | PyInstaller + pywebview（原生窗口） |
+| Windows 打包 | PyInstaller + pywebview（原生窗口） |
+| Android 打包 | Capacitor + Android WebView |
 
 ### API 端点一览
 
@@ -292,7 +303,16 @@ Go to the [Releases](https://github.com/Jarvisshun/tts-voxa/releases) page and d
 - All data stored locally, persists across restarts
 - In-app version update checking
 
-#### Option 2: Local Development Setup
+#### Option 2: Download Android APK
+
+Go to the [Releases](https://github.com/Jarvisshun/tts-voxa/releases) page and download the latest `TTS-Voxa-vX.X.X.apk`. Install directly on your phone.
+
+- Works on all mainstream Android phones (Android 6.0+)
+- All data stored locally on the phone
+- In-app update with direct APK download and installation
+- APK can be shared via WeChat or other messaging apps
+
+#### Option 3: Local Development Setup
 
 ```bash
 # 1. Clone the repository
@@ -354,6 +374,7 @@ All data is stored locally and persists across restarts:
 ### What's New in v2.1
 
 - **Standalone Desktop App**: Exe opens in a native OS window (Edge WebView2), no external browser needed
+- **Android Mobile App**: Native Android app built with Capacitor, local data storage, in-app update support
 - **Version Update Check**: Settings page checks GitHub for latest version with changelog and download link
 
 ### What's New in v2.0
@@ -374,7 +395,8 @@ All data is stored locally and persists across restarts:
 | Backend | Python 3.11+ FastAPI + aiosqlite |
 | Storage | SQLite (WAL mode, concurrent access) |
 | Audio | WaveSurfer.js waveform + MediaRecorder API |
-| Packaging | PyInstaller + pywebview (native window) |
+| Windows Packaging | PyInstaller + pywebview (native window) |
+| Android Packaging | Capacitor + Android WebView |
 
 ### API Endpoints
 

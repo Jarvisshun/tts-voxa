@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { createBatch, getBatchStatus, getBatchList, getBatchItemAudioUrl, getPresets } from '../api/client'
+import { createBatch, getBatchStatus, getBatchList, getBatchItemAudioUrl, getBatchItemAudioDataUrl, getPresets } from '../api/client'
+import { isNative } from '../platform'
 import { useTasks } from '../contexts/TaskContext'
 import WaveformPlayer from '../components/WaveformPlayer'
 
@@ -25,6 +26,7 @@ export default function BatchProcess() {
   const [batchList, setBatchList] = useState<any[]>([])
   const [expandedJob, setExpandedJob] = useState<string | null>(null)
   const [expandedResults, setExpandedResults] = useState<any>(null)
+  const [nativeAudioUrls, setNativeAudioUrls] = useState<Record<string, string>>({})
 
   const { addTask, updateTask } = useTasks()
 
@@ -80,6 +82,11 @@ export default function BatchProcess() {
             status: resp.data.status,
             progress: { current: resp.data.completed_items, total: resp.data.total_items },
           })
+          if (isNative() && resp.data.results) {
+            for (const r of resp.data.results) {
+              if (r.status === 'completed' && r.audio_path) loadNativeAudioUrl(activeJobId, r.item_index)
+            }
+          }
           if (resp.data.status === 'completed' || resp.data.status === 'failed') {
             loadBatchList()
             return true // stop polling
@@ -97,6 +104,16 @@ export default function BatchProcess() {
     return () => clearInterval(timer)
   }, [activeJobId])
 
+  const loadNativeAudioUrl = async (jobId: string, itemIndex: number) => {
+    const key = `${jobId}_${itemIndex}`
+    if (nativeAudioUrls[key]) return nativeAudioUrls[key]
+    try {
+      const url = await getBatchItemAudioDataUrl(jobId, itemIndex)
+      setNativeAudioUrls(prev => ({ ...prev, [key]: url }))
+      return url
+    } catch { return '' }
+  }
+
   // Load expanded job results
   const handleExpandJob = async (jobId: string) => {
     if (expandedJob === jobId) {
@@ -107,7 +124,14 @@ export default function BatchProcess() {
     setExpandedJob(jobId)
     try {
       const resp = await getBatchStatus(jobId)
-      if (resp.success) setExpandedResults(resp.data)
+      if (resp.success) {
+        setExpandedResults(resp.data)
+        if (isNative() && resp.data.results) {
+          for (const r of resp.data.results) {
+            if (r.status === 'completed' && r.audio_path) loadNativeAudioUrl(jobId, r.item_index)
+          }
+        }
+      }
     } catch {}
   }
 
@@ -232,7 +256,7 @@ export default function BatchProcess() {
                   </div>
                   {r.status === 'completed' && r.audio_path && (
                     <WaveformPlayer
-                      audioSrc={getBatchItemAudioUrl(activeJobId, r.item_index)}
+                      audioSrc={isNative() ? (nativeAudioUrls[`${activeJobId}_${r.item_index}`] || '') : getBatchItemAudioUrl(activeJobId, r.item_index)}
                       height={32}
                       showDownload
                       downloadFilename={`batch_${r.item_index + 1}.wav`}
@@ -290,7 +314,7 @@ export default function BatchProcess() {
                         </div>
                         {r.status === 'completed' && r.audio_path && (
                           <WaveformPlayer
-                            audioSrc={getBatchItemAudioUrl(job.id, r.item_index)}
+                            audioSrc={isNative() ? (nativeAudioUrls[`${job.id}_${r.item_index}`] || '') : getBatchItemAudioUrl(job.id, r.item_index)}
                             height={28}
                             showDownload
                             downloadFilename={`batch_${r.item_index + 1}.wav`}
