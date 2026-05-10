@@ -25,11 +25,7 @@ export default function VoiceDesign() {
     setAudioSrc('')
 
     try {
-      const resp = await designVoice({
-        description: description.trim(),
-        text: text.trim(),
-        format,
-      })
+      const resp = await designVoice({ description: description.trim(), text: text.trim(), format })
       if (resp.success && resp.data) {
         const audioUrl = `data:audio/${resp.data.format};base64,${resp.data.audio}`
         setAudioSrc(audioUrl)
@@ -50,92 +46,89 @@ export default function VoiceDesign() {
   }, [audioSrc])
 
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-800 rounded-lg p-6">
-        <h2 className="text-lg font-medium text-white mb-2">声音设计</h2>
-        <p className="text-sm text-slate-400 mb-4">
-          用自然语言描述你想要的声音特征，AI 会为你生成全新的虚拟声音
-        </p>
+    <div className="space-y-5">
+      {/* Description */}
+      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
+        <h2 className="text-sm font-medium text-slate-300 mb-1">声音设计</h2>
+        <p className="text-[11px] text-slate-600 mb-4">用自然语言描述你想要的声音特征，AI 会为你生成全新的虚拟声音</p>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">声音描述</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={3}
-              className="w-full bg-slate-700 border border-slate-600 rounded-lg p-3 text-slate-200 focus:border-blue-500 focus:outline-none resize-none"
-              placeholder="描述你想要的声音特征..."
-            />
-          </div>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          rows={3}
+          className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 focus:outline-none resize-none leading-relaxed"
+          placeholder="描述你想要的声音特征..."
+        />
 
-          <div>
-            <div className="text-xs text-slate-500 mb-2">示例描述 (点击使用)</div>
-            <div className="flex flex-wrap gap-2">
-              {examples.map((ex, i) => (
-                <button
-                  key={i}
-                  onClick={() => setDescription(ex)}
-                  className="text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-1 rounded"
-                >
-                  {ex}
-                </button>
-              ))}
-            </div>
-          </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {examples.map((ex, i) => (
+            <button
+              key={i}
+              onClick={() => setDescription(ex)}
+              className="text-[11px] bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-slate-300 px-2.5 py-1.5 rounded-lg transition-all truncate max-w-[200px]"
+              title={ex}
+            >
+              {ex}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-slate-300 mb-2">合成文本</label>
+      {/* Text + Format */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div className="md:col-span-2 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+          <label className="block text-sm font-medium text-slate-300 mb-3">合成文本</label>
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
             rows={4}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-slate-200 focus:border-blue-500 focus:outline-none resize-none"
+            className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl p-3 text-sm text-slate-200 focus:border-purple-500/50 focus:outline-none resize-none leading-relaxed"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">输出格式</label>
-          <select
-            value={format}
-            onChange={e => setFormat(e.target.value)}
-            className="w-full bg-slate-800 border border-slate-600 rounded px-3 py-2 text-slate-200"
-          >
-            <option value="wav">WAV</option>
-            <option value="mp3">MP3</option>
-          </select>
+        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+          <label className="block text-sm font-medium text-slate-300 mb-3">输出格式</label>
+          <div className="flex gap-1">
+            {['wav', 'mp3'].map(f => (
+              <button
+                key={f}
+                onClick={() => setFormat(f)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  format === f
+                    ? 'bg-purple-600/80 text-white shadow-sm'
+                    : 'bg-slate-900/50 text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {f.toUpperCase()}
+              </button>
+              ))}
+          </div>
         </div>
       </div>
 
+      {/* Generate Button */}
       <button
         onClick={handleGenerate}
         disabled={loading || !description.trim() || !text.trim()}
-        className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-medium transition-colors"
+        className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-violet-500 hover:from-purple-500 hover:to-violet-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 rounded-2xl font-medium text-sm transition-all shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 disabled:shadow-none active:scale-[0.99]"
       >
         {loading ? '正在生成...' : '生成声音'}
       </button>
 
       {error && (
-        <div className="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
-          {error}
-        </div>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm">{error}</div>
       )}
 
       {audioSrc && (
-        <div className="bg-slate-800 rounded-lg p-4">
-          <div className="text-sm text-slate-400 mb-2">生成结果</div>
+        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-slate-400">生成结果</span>
+            <a href={audioSrc} download={`design_output.${format}`} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
+              下载 .{format}
+            </a>
+          </div>
           <audio ref={audioRef} controls className="w-full">
             <source src={audioSrc} />
           </audio>
-          <a
-            href={audioSrc}
-            download={`design_output.${format}`}
-            className="inline-block mt-2 text-sm text-purple-400 hover:text-purple-300"
-          >
-            下载音频
-          </a>
         </div>
       )}
     </div>

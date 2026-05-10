@@ -31,33 +31,51 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200">
-      <header className="bg-slate-800 border-b border-slate-700 px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold text-white">MiMo TTS Studio</h1>
-          <span className="text-sm text-slate-400">多模型 TTS 语音创作平台</span>
+    <div className="min-h-screen bg-[#0a0e1a] text-slate-200">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 px-6 py-4 shadow-lg shadow-black/20">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/20">
+              T
+            </div>
+            <div>
+              <h1 className="text-lg font-bold text-white tracking-tight">TTS Studio</h1>
+              <p className="text-[11px] text-slate-500 -mt-0.5">Multi-Model Voice Platform</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs text-slate-500">Ready</span>
+          </div>
         </div>
       </header>
 
-      <nav className="bg-slate-800/50 border-b border-slate-700">
-        <div className="max-w-6xl mx-auto flex">
+      {/* Navigation */}
+      <nav className="bg-slate-900/80 border-b border-slate-700/30 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto flex overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${
+              className={`relative px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-all ${
                 activeTab === tab.id
-                  ? 'text-blue-400 border-b-2 border-blue-400'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'text-blue-400'
+                  : 'text-slate-500 hover:text-slate-300'
               }`}
             >
-              {tab.icon} {tab.label}
+              <span className="mr-1.5">{tab.icon}</span>
+              {tab.label}
+              {activeTab === tab.id && (
+                <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full" />
+              )}
             </button>
           ))}
         </div>
       </nav>
 
-      <main className="max-w-6xl mx-auto p-6">
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto p-6">
         {renderPage()}
       </main>
     </div>

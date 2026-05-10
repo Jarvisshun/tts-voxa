@@ -3,18 +3,36 @@ import subprocess
 import sys
 import os
 import shutil
+import stat
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Install PyInstaller
 subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "--quiet"])
 
-# Build
+APP_NAME = "MiMo TTS Studio"
+DIST_DIR = "dist"
+BUILD_DIR = "build"
+
+# Try to clean old dist/build, but don't fail if locked
+for d in [DIST_DIR, BUILD_DIR]:
+    if os.path.exists(d):
+        def _onerror(func, path, exc):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+        shutil.rmtree(d, onerror=_onerror)
+
+# Build to a temp dist path to avoid locked-directory issues
+TEMP_DIST = "_dist_temp"
 subprocess.check_call([
     sys.executable, "-m", "PyInstaller",
     "--noconfirm",
     "--onedir",
-    "--name", "MiMo TTS Studio",
+    "--name", APP_NAME,
+    "--distpath", TEMP_DIST,
     "--add-data", "static;static",
     "--add-data", "routers;routers",
     "--add-data", "services;services",
@@ -33,5 +51,14 @@ subprocess.check_call([
     "main.py",
 ])
 
+# Move result to dist/
+os.makedirs(DIST_DIR, exist_ok=True)
+src = os.path.join(TEMP_DIST, APP_NAME)
+dst = os.path.join(DIST_DIR, APP_NAME)
+if os.path.exists(dst):
+    shutil.rmtree(dst, onerror=_onerror)
+shutil.move(src, dst)
+shutil.rmtree(TEMP_DIST, ignore_errors=True)
+
 print("\nBuild complete!")
-print(f"Output: {os.path.join(os.getcwd(), 'dist', 'MiMo TTS Studio')}")
+print(f"Output: {os.path.join(os.getcwd(), dst)}")

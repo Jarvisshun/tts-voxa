@@ -20,7 +20,6 @@ export default function Settings() {
   const [loading, setLoading] = useState(false)
   const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  // Form state
   const [name, setName] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [apiBase, setApiBase] = useState('https://token-plan-sgp.xiaomimimo.com/v1')
@@ -36,48 +35,25 @@ export default function Settings() {
     } catch {}
   }
 
-  useEffect(() => {
-    fetchProviders()
-  }, [])
+  useEffect(() => { fetchProviders() }, [])
 
   const parseModels = (): ModelEntry[] => {
-    return modelsText
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean)
-      .map(id => ({ id, name: id, type: 'basic' }))
+    return modelsText.split(',').map(s => s.trim()).filter(Boolean).map(id => ({ id, name: id, type: 'basic' }))
   }
 
   const handleSave = async () => {
     if (!name.trim() || !apiKey.trim() || !apiBase.trim()) return
     setLoading(true)
     try {
-      const body = {
-        name: name.trim(),
-        api_key: apiKey.trim(),
-        api_base: apiBase.trim(),
-        models: parseModels(),
-        is_default: isDefault,
-      }
-
+      const body = { name: name.trim(), api_key: apiKey.trim(), api_base: apiBase.trim(), models: parseModels(), is_default: isDefault }
       const url = editingId ? `/api/config/providers/${editingId}` : '/api/config/providers'
       const method = editingId ? 'PUT' : 'POST'
-
-      const resp = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
+      const resp = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await resp.json()
-      if (data.success) {
-        resetForm()
-        fetchProviders()
-      }
+      if (data.success) { resetForm(); fetchProviders() }
     } catch (e: any) {
       setTestResult({ type: 'error', message: e.message })
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleTest = async () => {
@@ -88,23 +64,13 @@ export default function Settings() {
       const resp = await fetch('/api/config/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'test',
-          api_key: apiKey.trim(),
-          api_base: apiBase.trim(),
-          models: [],
-        }),
+        body: JSON.stringify({ name: 'test', api_key: apiKey.trim(), api_base: apiBase.trim(), models: [] }),
       })
       const data = await resp.json()
-      setTestResult({
-        type: data.success ? 'success' : 'error',
-        message: data.message,
-      })
+      setTestResult({ type: data.success ? 'success' : 'error', message: data.message })
     } catch (e: any) {
       setTestResult({ type: 'error', message: e.message })
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }
 
   const handleDelete = async (id: string) => {
@@ -116,7 +82,7 @@ export default function Settings() {
   const handleEdit = (p: Provider) => {
     setEditingId(p.id)
     setName(p.name)
-    setApiKey('') // don't fill masked key
+    setApiKey('')
     setApiBase(p.api_base)
     setModelsText(p.models.map(m => m.id).join(', '))
     setIsDefault(p.is_default)
@@ -144,20 +110,22 @@ export default function Settings() {
     setModelsText(preset.models)
   }
 
+  const inputCls = "w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500/50 focus:outline-none transition-all"
+
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h2 className="text-lg font-semibold text-white mb-4">
+    <div className="space-y-5">
+      {/* Add/Edit Form */}
+      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
+        <h2 className="text-sm font-medium text-slate-300 mb-4">
           {editingId ? '编辑服务商' : '添加服务商'}
         </h2>
 
-        {/* Presets */}
-        <div className="flex gap-2 mb-4">
+        <div className="flex gap-1.5 mb-5">
           {PRESETS.map(p => (
             <button
               key={p.name}
               onClick={() => applyPreset(p)}
-              className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded text-slate-300"
+              className="px-3 py-1.5 text-[11px] bg-slate-700/50 hover:bg-slate-600/50 rounded-lg text-slate-400 hover:text-slate-300 transition-all"
             >
               {p.name}
             </button>
@@ -166,82 +134,55 @@ export default function Settings() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs text-slate-400 mb-1">服务商名称</label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="如: 小米 MiMo"
-              className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200"
-            />
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">服务商名称</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="如: 小米 MiMo" className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">API Base URL</label>
-            <input
-              value={apiBase}
-              onChange={e => setApiBase(e.target.value)}
-              placeholder="https://api.example.com/v1"
-              className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200"
-            />
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">API Base URL</label>
+            <input value={apiBase} onChange={e => setApiBase(e.target.value)} placeholder="https://api.example.com/v1" className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">API Key</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={e => setApiKey(e.target.value)}
-              placeholder={editingId ? '留空则不修改' : '输入 API Key'}
-              className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200"
-            />
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">API Key</label>
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={editingId ? '留空则不修改' : '输入 API Key'} className={inputCls} />
           </div>
           <div>
-            <label className="block text-xs text-slate-400 mb-1">模型列表（逗号分隔）</label>
-            <input
-              value={modelsText}
-              onChange={e => setModelsText(e.target.value)}
-              placeholder="model-1, model-2"
-              className="w-full bg-slate-900 border border-slate-600 rounded px-3 py-2 text-sm text-slate-200"
-            />
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">模型列表</label>
+            <input value={modelsText} onChange={e => setModelsText(e.target.value)} placeholder="model-1, model-2（逗号分隔）" className={inputCls} />
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="isDefault"
-            checked={isDefault}
-            onChange={e => setIsDefault(e.target.checked)}
-            className="rounded"
-          />
-          <label htmlFor="isDefault" className="text-sm text-slate-300">设为默认服务商</label>
+        <div className="mt-4 flex items-center gap-2">
+          <input type="checkbox" id="isDefault" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} className="rounded accent-blue-500" />
+          <label htmlFor="isDefault" className="text-sm text-slate-400">设为默认服务商</label>
         </div>
 
-        <div className="mt-4 flex gap-3">
+        <div className="mt-5 flex gap-2">
           <button
             onClick={handleSave}
             disabled={loading || !name.trim() || !apiKey.trim() || !apiBase.trim()}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 rounded text-sm font-medium"
+            className="px-5 py-2.5 bg-blue-600/80 hover:bg-blue-500/80 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl text-sm font-medium transition-all"
           >
             {editingId ? '更新' : '添加'}
           </button>
           <button
             onClick={handleTest}
             disabled={loading || !apiKey.trim() || !apiBase.trim()}
-            className="px-4 py-2 bg-green-700 hover:bg-green-600 disabled:bg-slate-700 disabled:text-slate-500 rounded text-sm font-medium"
+            className="px-5 py-2.5 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl text-sm font-medium transition-all"
           >
             测试连接
           </button>
           {editingId && (
-            <button onClick={resetForm} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded text-sm">
+            <button onClick={resetForm} className="px-5 py-2.5 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm text-slate-400 transition-all">
               取消
             </button>
           )}
         </div>
 
         {testResult && (
-          <div className={`mt-3 p-3 rounded text-sm ${
+          <div className={`mt-4 p-3 rounded-xl text-sm ${
             testResult.type === 'success'
-              ? 'bg-green-900/50 border border-green-700 text-green-300'
-              : 'bg-red-900/50 border border-red-700 text-red-300'
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
           }`}>
             {testResult.message}
           </div>
@@ -249,31 +190,35 @@ export default function Settings() {
       </div>
 
       {/* Provider List */}
-      <div className="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h2 className="text-lg font-semibold text-white mb-4">已配置的服务商</h2>
+      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
+        <h2 className="text-sm font-medium text-slate-300 mb-4">已配置的服务商</h2>
         {providers.length === 0 ? (
-          <p className="text-slate-500 text-sm">尚未配置任何服务商，请在上方添加。</p>
+          <div className="text-center py-10">
+            <div className="text-3xl mb-2 opacity-30"> </div>
+            <p className="text-slate-600 text-sm">尚未配置任何服务商</p>
+            <p className="text-slate-700 text-xs mt-1">请在上方添加</p>
+          </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {providers.map(p => (
-              <div key={p.id} className="flex items-center justify-between bg-slate-900 rounded-lg p-4 border border-slate-700">
-                <div>
+              <div key={p.id} className="flex items-center justify-between bg-slate-900/50 rounded-xl p-4 border border-slate-700/30 hover:border-slate-600/30 transition-all">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-white">{p.name}</span>
+                    <span className="font-medium text-white text-sm truncate">{p.name}</span>
                     {p.is_default && (
-                      <span className="px-2 py-0.5 text-xs bg-blue-600 rounded text-white">默认</span>
+                      <span className="px-2 py-0.5 text-[10px] bg-blue-600/80 rounded-md text-white shrink-0">默认</span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">{p.api_base}</div>
-                  <div className="text-xs text-slate-500 mt-1">
+                  <div className="text-[11px] text-slate-600 mt-1 truncate">{p.api_base}</div>
+                  <div className="text-[11px] text-slate-600 mt-0.5 truncate">
                     模型: {p.models.map(m => m.id).join(', ') || '未配置'}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => handleEdit(p)} className="px-3 py-1 text-xs bg-slate-700 hover:bg-slate-600 rounded">
+                <div className="flex gap-1.5 shrink-0 ml-3">
+                  <button onClick={() => handleEdit(p)} className="px-3 py-1.5 text-xs bg-slate-700/50 hover:bg-slate-600/50 rounded-lg text-slate-400 transition-all">
                     编辑
                   </button>
-                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1 text-xs bg-red-900 hover:bg-red-800 rounded text-red-300">
+                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition-all">
                     删除
                   </button>
                 </div>

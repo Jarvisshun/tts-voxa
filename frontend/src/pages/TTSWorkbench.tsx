@@ -78,102 +78,132 @@ export default function TTSWorkbench() {
     }
   }, [audioSrc])
 
+  const speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div className="space-y-5">
+      {/* Top: Text + Voice side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Text Input */}
-        <div className="lg:col-span-2 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">合成文本</label>
+        <div className="lg:col-span-2">
+          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+            <label className="block text-sm font-medium text-slate-300 mb-3">合成文本</label>
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}
-              rows={8}
+              rows={7}
               maxLength={5000}
-              className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-slate-200 focus:border-blue-500 focus:outline-none resize-none"
+              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl p-4 text-slate-200 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 focus:outline-none resize-none text-sm leading-relaxed transition-all"
               placeholder="输入要合成的文本..."
             />
-            <div className="text-right text-xs text-slate-500 mt-1">{text.length}/5000</div>
-          </div>
-
-          {/* Controls */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">模型</label>
-              <select
-                value={model}
-                onChange={e => setModel(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-sm text-slate-200"
-              >
-                {models.length > 0 ? (
-                  models.map(m => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}{m.provider ? ` (${m.provider})` : ''}
-                    </option>
-                  ))
-                ) : (
-                  <option value="">请先在设置中配置服务商</option>
-                )}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">格式</label>
-              <select
-                value={format}
-                onChange={e => setFormat(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-sm text-slate-200"
-              >
-                <option value="wav">WAV</option>
-                <option value="mp3">MP3</option>
-                <option value="pcm">PCM</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">语速: {speed.toFixed(1)}</label>
-              <input
-                type="range"
-                min="0.5"
-                max="2.0"
-                step="0.1"
-                value={speed}
-                onChange={e => setSpeed(parseFloat(e.target.value))}
-                className="w-full mt-1"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1">情感</label>
-              <input
-                type="text"
-                value={emotion}
-                onChange={e => setEmotion(e.target.value)}
-                placeholder="如: 开心"
-                className="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1.5 text-sm text-slate-200"
-              />
+            <div className="flex justify-between items-center mt-2">
+              <span className="text-[11px] text-slate-600">支持中英文混合</span>
+              <span className="text-[11px] text-slate-600">{text.length}/5000</span>
             </div>
           </div>
         </div>
 
         {/* Voice Selector */}
         <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">选择音色</label>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto">
-            {voices.map(v => (
-              <button
-                key={v.id}
-                onClick={() => setVoice(v.id)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  voice === v.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`}
-              >
-                <div className="font-medium">{v.name}</div>
-                <div className="text-xs opacity-70">{v.style}</div>
-              </button>
-            ))}
+          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm h-full">
+            <label className="block text-sm font-medium text-slate-300 mb-3">选择音色</label>
+            <div className="space-y-1.5 max-h-[340px] overflow-y-auto pr-1">
+              {voices.map(v => (
+                <button
+                  key={v.id}
+                  onClick={() => setVoice(v.id)}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
+                    voice === v.id
+                      ? 'bg-gradient-to-r from-blue-600/90 to-blue-600/70 text-white shadow-md shadow-blue-500/10'
+                      : 'bg-slate-900/50 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300'
+                  }`}
+                >
+                  <div className="font-medium truncate">{v.name}</div>
+                  <div className={`text-[11px] mt-0.5 truncate ${voice === v.id ? 'text-blue-100/70' : 'text-slate-600'}`}>
+                    {v.style}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Controls Bar */}
+      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Model */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">模型</label>
+            <select
+              value={model}
+              onChange={e => setModel(e.target.value)}
+              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none truncate"
+            >
+              {models.length > 0 ? (
+                models.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}{m.provider ? ` (${m.provider})` : ''}
+                  </option>
+                ))
+              ) : (
+                <option value="">请先在设置中配置服务商</option>
+              )}
+            </select>
+          </div>
+
+          {/* Format */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">输出格式</label>
+            <div className="flex gap-1">
+              {['wav', 'mp3', 'pcm'].map(f => (
+                <button
+                  key={f}
+                  onClick={() => setFormat(f)}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    format === f
+                      ? 'bg-blue-600/80 text-white shadow-sm'
+                      : 'bg-slate-900/50 text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+                  }`}
+                >
+                  {f.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Speed */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">
+              语速 <span className="text-blue-400 normal-case">{speed.toFixed(1)}x</span>
+            </label>
+            <div className="flex gap-1">
+              {speedPresets.map(s => (
+                <button
+                  key={s}
+                  onClick={() => setSpeed(s)}
+                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
+                    Math.abs(speed - s) < 0.01
+                      ? 'bg-blue-600/80 text-white'
+                      : 'bg-slate-900/50 text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {s}x
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Emotion */}
+          <div>
+            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">情感</label>
+            <input
+              type="text"
+              value={emotion}
+              onChange={e => setEmotion(e.target.value)}
+              placeholder="如: 开心、温柔"
+              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500/50 focus:outline-none"
+            />
           </div>
         </div>
       </div>
@@ -182,32 +212,44 @@ export default function TTSWorkbench() {
       <button
         onClick={handleSynthesize}
         disabled={loading || !text.trim() || !model}
-        className="w-full py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 rounded-lg font-medium transition-colors"
+        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 rounded-2xl font-medium text-sm transition-all shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 disabled:shadow-none active:scale-[0.99]"
       >
-        {loading ? '正在合成...' : '开始合成'}
+        {loading ? (
+          <span className="flex items-center justify-center gap-2">
+            <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            正在合成...
+          </span>
+        ) : '开始合成'}
       </button>
 
       {/* Error */}
       {error && (
-        <div className="bg-red-900/50 border border-red-700 rounded-lg p-3 text-red-300 text-sm">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm flex items-center gap-2">
+          <span className="text-lg">!</span>
           {error}
         </div>
       )}
 
       {/* Audio Player */}
       {audioSrc && (
-        <div className="bg-slate-800 rounded-lg p-4">
-          <div className="text-sm text-slate-400 mb-2">合成结果</div>
+        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-slate-400">合成结果</span>
+            <a
+              href={audioSrc}
+              download={`tts_output.${format}`}
+              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+            >
+              <span>下载</span>
+              <span className="text-sm">.{format}</span>
+            </a>
+          </div>
           <audio ref={audioRef} controls className="w-full">
             <source src={audioSrc} />
           </audio>
-          <a
-            href={audioSrc}
-            download={`tts_output.${format}`}
-            className="inline-block mt-2 text-sm text-blue-400 hover:text-blue-300"
-          >
-            下载音频
-          </a>
         </div>
       )}
     </div>

@@ -3,10 +3,88 @@
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0f172a;
+  background: #0a0e1a;
   color: #e2e8f0;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Form elements - fix text overflow */
+select, input[type="text"], input[type="password"], textarea {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px !important;
+  cursor: pointer;
+}
+
+select option {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px;
+}
+
+/* Range slider */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #334155;
+  border-radius: 3px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #1e293b;
+  box-shadow: 0 0 4px rgba(59, 130, 246, 0.4);
+}
+
+/* Checkbox */
+input[type="checkbox"] {
+  accent-color: #3b82f6;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Audio player */
+audio {
+  height: 40px;
+  border-radius: 8px;
+}
+
+audio::-webkit-media-controls-panel {
+  background: #1e293b;
 }
