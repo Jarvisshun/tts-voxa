@@ -11,28 +11,43 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "--quiet"])
 
 APP_NAME = "MiMo TTS Studio"
-DIST_DIR = "dist"
-BUILD_DIR = "build"
-
-# Try to clean old dist/build, but don't fail if locked
-for d in [DIST_DIR, BUILD_DIR]:
-    if os.path.exists(d):
-        def _onerror(func, path, exc):
-            try:
-                os.chmod(path, stat.S_IWRITE)
-                func(path)
-            except Exception:
-                pass
-        shutil.rmtree(d, onerror=_onerror)
-
-# Build to a temp dist path to avoid locked-directory issues
 TEMP_DIST = "_dist_temp"
+FINAL_DIST = "dist"
+
+def _onerror(func, path, exc):
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    except Exception:
+        pass
+
+# Clean old temp, release, build dirs and spec files
+for d in [TEMP_DIST, "build"] + [f for f in os.listdir(".") if f.startswith("_release")]:
+    if os.path.exists(d):
+        shutil.rmtree(d, onerror=_onerror)
+for f in os.listdir("."):
+    if f.endswith(".spec"):
+        try:
+            os.remove(f)
+        except Exception:
+            pass
+
+# Build to temp directory
 subprocess.check_call([
     sys.executable, "-m", "PyInstaller",
     "--noconfirm",
     "--onedir",
     "--name", APP_NAME,
     "--distpath", TEMP_DIST,
+    "--exclude-module", "tkinter",
+    "--exclude-module", "_tkinter",
+    "--exclude-module", "matplotlib",
+    "--exclude-module", "IPython",
+    "--exclude-module", "ipykernel",
+    "--exclude-module", "jupyter",
+    "--exclude-module", "nbformat",
+    "--exclude-module", "nbconvert",
+    "--exclude-module", "notebook",
     "--add-data", "static;static",
     "--add-data", "routers;routers",
     "--add-data", "services;services",
@@ -52,13 +67,25 @@ subprocess.check_call([
 ])
 
 # Move result to dist/
-os.makedirs(DIST_DIR, exist_ok=True)
 src = os.path.join(TEMP_DIST, APP_NAME)
-dst = os.path.join(DIST_DIR, APP_NAME)
-if os.path.exists(dst):
-    shutil.rmtree(dst, onerror=_onerror)
-shutil.move(src, dst)
-shutil.rmtree(TEMP_DIST, ignore_errors=True)
+dst = os.path.join(FINAL_DIST, APP_NAME)
 
-print("\nBuild complete!")
-print(f"Output: {os.path.join(os.getcwd(), dst)}")
+# Try to remove old dist
+if os.path.exists(FINAL_DIST):
+    shutil.rmtree(FINAL_DIST, onerror=_onerror)
+
+if os.path.exists(FINAL_DIST):
+    # Old dist is locked — try alternate names
+    import time
+    for suffix in ["_release", f"_release_{int(time.time())}"]:
+        if not os.path.exists(suffix):
+            os.rename(TEMP_DIST, suffix)
+            release_dst = os.path.join(suffix, APP_NAME)
+            print(f"\nBuild complete! (old dist locked, output to: {os.path.join(os.getcwd(), release_dst)})")
+            break
+    else:
+        print("\nBuild complete in _dist_temp (could not rename)")
+
+else:
+    os.rename(TEMP_DIST, FINAL_DIST)
+    print(f"\nBuild complete! Output: {os.path.join(os.getcwd(), dst)}")
