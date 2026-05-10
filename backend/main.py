@@ -1,17 +1,31 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from starlette.routing import NoMatchFound
 import uvicorn
 import os
+import sys
+import webbrowser
+import threading
 
 from routers import tts, clone, design, batch, voices, history
 from models.database import init_db
+
+
+def get_base_dir():
+    if getattr(sys, "frozen", False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+BASE_DIR = get_base_dir()
 
 app = FastAPI(title="MiMo TTS Studio", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,8 +38,9 @@ app.include_router(batch.router, prefix="/api/batch", tags=["Batch"])
 app.include_router(voices.router, prefix="/api/voices", tags=["Voices"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
 
-os.makedirs("audio_store", exist_ok=True)
-app.mount("/audio", StaticFiles(directory="audio_store"), name="audio")
+audio_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "audio_store")
+os.makedirs(audio_dir, exist_ok=True)
+app.mount("/audio", StaticFiles(directory=audio_dir), name="audio")
 
 
 @app.on_event("startup")
@@ -69,5 +84,29 @@ async def health():
     return {"status": "ok"}
 
 
+static_dir = os.path.join(BASE_DIR, "static")
+if os.path.isdir(static_dir):
+    app.mount("/assets", StaticFiles(directory=os.path.join(static_dir, "assets")), name="assets")
+
+    @app.get("/")
+    async def serve_index():
+        return FileResponse(os.path.join(static_dir, "index.html"))
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = os.path.join(static_dir, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(static_dir, "index.html"))
+
+
+def open_browser():
+    import time
+    time.sleep(1.5)
+    webbrowser.open("http://localhost:8000")
+
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    if getattr(sys, "frozen", False):
+        threading.Thread(target=open_browser, daemon=True).start()
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
