@@ -67,8 +67,8 @@ function App() {
               </svg>
             </div>
             <div>
-              <h1 className="text-base font-semibold text-gray-900 tracking-tight">MiMo TTS Studio</h1>
-              <p className="text-[11px] text-gray-400 -mt-0.5">Multi-Model Voice Platform</p>
+              <h1 className="text-base font-semibold text-gray-900 tracking-tight">TTS Voxa</h1>
+              <p className="text-[11px] text-gray-400 -mt-0.5">AI Voice Studio</p>
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full">

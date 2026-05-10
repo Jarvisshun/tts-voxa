@@ -15,7 +15,7 @@ interface VoiceItem {
 }
 
 export default function TTSWorkbench() {
-  const [text, setText] = useState('你好，欢迎使用 TTS Studio！这是一段测试文本。')
+  const [text, setText] = useState('你好，欢迎使用 TTS Voxa！这是一段测试文本。')
   const [voice, setVoice] = useState('mimo_default')
   const [model, setModel] = useState('')
   const [speed, setSpeed] = useState(1.0)

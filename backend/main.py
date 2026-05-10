@@ -30,7 +30,7 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-app = FastAPI(title="MiMo TTS Studio", version="1.0.0")
+app = FastAPI(title="TTS Voxa", version="1.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -125,7 +125,7 @@ def open_browser(port):
 if __name__ == "__main__":
     try:
         port = find_free_port()
-        print(f"Starting MiMo TTS Studio on http://localhost:{port}")
+        print(f"Starting TTS Voxa on http://localhost:{port}")
         print(f"Static dir: {STATIC_DIR} (exists={os.path.isdir(STATIC_DIR)})")
         if getattr(sys, "frozen", False):
             threading.Thread(target=open_browser, args=(port,), daemon=True).start()

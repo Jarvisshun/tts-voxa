@@ -1,4 +1,4 @@
-"""Build script for packaging MiMo TTS Studio as a Windows exe."""
+"""Build script for packaging TTS Voxa as a Windows exe."""
 import subprocess
 import sys
 import os
@@ -10,7 +10,7 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 # Install PyInstaller
 subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "--quiet"])
 
-APP_NAME = "MiMo TTS Studio"
+APP_NAME = "TTS Voxa"
 TEMP_DIST = "_dist_temp"
 FINAL_DIST = "dist"
 
