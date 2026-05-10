@@ -88,13 +88,31 @@ if os.path.isdir(static_dir):
         return FileResponse(os.path.join(static_dir, "index.html"))
 
 
-def open_browser():
+def find_free_port(start=8000, end=8020):
+    import socket
+    for port in range(start, end):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(("0.0.0.0", port))
+                return port
+            except OSError:
+                continue
+    return start
+
+
+def open_browser(port):
     import time
-    time.sleep(1.5)
-    webbrowser.open("http://localhost:8000")
+    time.sleep(2)
+    webbrowser.open(f"http://localhost:{port}")
 
 
 if __name__ == "__main__":
-    if getattr(sys, "frozen", False):
-        threading.Thread(target=open_browser, daemon=True).start()
-    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False)
+    try:
+        port = find_free_port()
+        print(f"Starting MiMo TTS Studio on http://localhost:{port}")
+        if getattr(sys, "frozen", False):
+            threading.Thread(target=open_browser, args=(port,), daemon=True).start()
+        uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+    except Exception as e:
+        print(f"\nError: {e}")
+        input("Press Enter to exit...")
