@@ -90,3 +90,31 @@ async def get_generation_audio(generation_id: str):
             raise HTTPException(status_code=404, detail="Audio file not found")
 
         return FileResponse(audio_path, media_type="audio/wav")
+
+
+@router.delete("/{generation_id}")
+async def delete_generation(generation_id: str):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM generations WHERE id = ?", (generation_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Generation not found")
+
+        data = dict(row)
+        audio_path = data.get("audio_path")
+        import os
+
+        # Delete audio file if exists
+        if audio_path and os.path.exists(audio_path):
+            try:
+                os.remove(audio_path)
+            except:
+                pass
+
+        await db.execute("DELETE FROM generations WHERE id = ?", (generation_id,))
+        await db.commit()
+
+        return {"success": True}

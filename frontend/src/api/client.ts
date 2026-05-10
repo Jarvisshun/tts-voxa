@@ -166,15 +166,18 @@ export async function getPresets() {
 
 export async function getModels() {
   if (isNative()) {
-    return {
-      success: true,
-      data: [
-        { id: 'mimo-v2.5-tts', name: 'MiMo v2.5 TTS', type: 'basic' },
-        { id: 'mimo-v2-tts', name: 'MiMo v2 TTS', type: 'basic' },
-        { id: 'mimo-v2.5-tts-voiceclone', name: 'MiMo v2.5 Voice Clone', type: 'clone' },
-        { id: 'mimo-v2.5-tts-voicedesign', name: 'MiMo v2.5 Voice Design', type: 'design' },
-      ],
+    const providers = await db.getProviders()
+    const models: Array<{ id: string; name: string; type: string; provider?: string }> = []
+    for (const p of providers) {
+      const pModels = Array.isArray(p.models) ? p.models : []
+      for (const m of pModels) {
+        const id = typeof m === 'string' ? m : m.id || m.name || ''
+        const name = typeof m === 'string' ? m : m.name || m.id || ''
+        const type = typeof m === 'string' ? 'basic' : (m.type || 'basic')
+        if (id) models.push({ id, name, type, provider: p.name })
+      }
     }
+    return { success: true, data: models }
   }
   return request<{ success: boolean; data: Array<{ id: string; name: string; type: string; provider?: string }> }>(
     '/config/models'
@@ -302,4 +305,12 @@ export async function getAudioDataUrlForHistory(generationId: string, format: st
     return getAudioDataUrl(`${generationId}.${format}`, format)
   }
   return `${API_BASE}/history/${generationId}/audio`
+}
+
+export async function deleteHistory(id: string) {
+  if (isNative()) {
+    await db.deleteGeneration(id)
+    return { success: true }
+  }
+  return request<{ success: boolean }>(`/history/${id}`, { method: 'DELETE' })
 }

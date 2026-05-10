@@ -40,7 +40,7 @@ export async function deleteAudioFile(filename: string): Promise<void> {
   } catch {}
 }
 
-export async function downloadApk(url: string, onProgress?: (percent: number) => void): Promise<string> {
+export async function downloadApk(url: string, onProgress?: (percent: number) => void): Promise<void> {
   const resp = await fetch(url)
   if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
   const total = parseInt(resp.headers.get('content-length') || '0')
@@ -63,13 +63,15 @@ export async function downloadApk(url: string, onProgress?: (percent: number) =>
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
   const base64 = btoa(binary)
 
-  await ensureDir()
-  const filename = `TTS-Voxa-update.apk`
+  const filename = 'TTS-Voxa-update.apk'
   await Filesystem.writeFile({
-    path: `${AUDIO_DIR}/${filename}`,
+    path: filename,
     data: base64,
     directory: Directory.Cache,
   })
-  const uri = await Filesystem.getUri({ path: `${AUDIO_DIR}/${filename}`, directory: Directory.Cache })
-  return uri.uri
+
+  const uri = await Filesystem.getUri({ path: filename, directory: Directory.Cache })
+
+  // Open APK with system installer
+  window.open(uri.uri, '_system')
 }

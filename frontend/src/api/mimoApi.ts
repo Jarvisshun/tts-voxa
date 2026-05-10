@@ -206,9 +206,39 @@ export async function checkUpdateNative(currentVersion: string): Promise<import(
     release_notes: null,
   }
   try {
-    const resp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
+    // Try latest release first
+    let resp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`, {
       headers: { 'Accept': 'application/vnd.github+json' },
     })
+
+    // If no "latest" release, try the most recent release from all releases
+    if (resp.status === 404) {
+      resp = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases?per_page=1`, {
+        headers: { 'Accept': 'application/vnd.github+json' },
+      })
+      if (resp.status === 200) {
+        const releases = await resp.json()
+        if (releases.length > 0) {
+          // Simulate latest release format
+          const data = releases[0]
+          const tag = data.tag_name || ''
+          const latestVer = tag.replace(/^v/, '')
+          let downloadUrl: string | null = null
+          for (const asset of data.assets || []) {
+            if (asset.name?.endsWith('.apk')) { downloadUrl = asset.browser_download_url; break }
+          }
+          if (!downloadUrl) downloadUrl = data.html_url || ''
+          result.latest = latestVer
+          result.has_update = compareVersions(latestVer, currentVersion) > 0
+          result.download_url = downloadUrl
+          result.release_notes = data.body || ''
+          return result
+        }
+      }
+      result.error = '暂无可用更新'
+      return result
+    }
+
     if (resp.status === 200) {
       const data = await resp.json()
       const tag = data.tag_name || ''
@@ -219,16 +249,33 @@ export async function checkUpdateNative(currentVersion: string): Promise<import(
       }
       if (!downloadUrl) downloadUrl = data.html_url || ''
       result.latest = latestVer
-      result.has_update = parseVersion(latestVer) > parseVersion(currentVersion)
+      result.has_update = compareVersions(latestVer, currentVersion) > 0
       result.download_url = downloadUrl
       result.release_notes = data.body || ''
+    } else {
+      result.error = `检查失败 (${resp.status})`
     }
-  } catch {
-    result.error = '检查失败，请稍后重试'
+  } catch (e: any) {
+    result.error = `检查失败: ${e.message || '网络错误'}`
   }
   return result
 }
 
 function parseVersion(v: string): number[] {
-  return v.replace(/^v/, '').split('.').map(p => parseInt(p) || 0)
+  // Handle formats: "2.1.1", "v2.1.1", "2.1.1-beta", etc.
+  const cleaned = v.replace(/^v/, '').split('-')[0].trim()
+  const parts = cleaned.split('.').map(p => parseInt(p) || 0)
+  // Normalize to 3 parts for comparison
+  while (parts.length < 3) parts.push(0)
+  return parts
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = parseVersion(a)
+  const pb = parseVersion(b)
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] > pb[i]) return 1
+    if (pa[i] < pb[i]) return -1
+  }
+  return 0
 }

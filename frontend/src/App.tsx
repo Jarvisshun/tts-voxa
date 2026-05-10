@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Component, type ReactNode } from 'react'
 import { TaskProvider } from './contexts/TaskContext'
 import Sidebar from './components/Sidebar'
 import TTSWorkbench from './pages/TTSWorkbench'
@@ -7,6 +7,32 @@ import VoiceDesign from './pages/VoiceDesign'
 import BatchProcess from './pages/BatchProcess'
 import History from './pages/History'
 import Settings from './pages/Settings'
+
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
+  state = { hasError: false, error: '' }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message }
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center p-8 text-center">
+          <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mb-4">
+            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-600 mb-2">页面加载出错</p>
+          <p className="text-xs text-gray-400 mb-4">{this.state.error}</p>
+          <button onClick={() => { this.setState({ hasError: false }); window.location.reload() }} className="px-4 py-2 bg-indigo-500 text-white text-sm rounded-xl">
+            重新加载
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const tabs = [
   { id: 'tts', label: 'TTS', icon: (
@@ -86,7 +112,7 @@ function App() {
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="max-w-5xl mx-auto">
-              {renderPage()}
+              <ErrorBoundary>{renderPage()}</ErrorBoundary>
             </div>
           </main>
         </div>

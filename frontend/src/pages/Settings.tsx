@@ -62,8 +62,7 @@ export default function Settings() {
       setDownloadProgress(0)
       try {
         const { downloadApk } = await import('../storage/audioStorage')
-        const uri = await downloadApk(updateInfo.download_url, setDownloadProgress)
-        window.open(uri, '_system')
+        await downloadApk(updateInfo.download_url, setDownloadProgress)
       } catch (e: any) {
         setUpdateInfo(prev => prev ? { ...prev, error: `下载失败: ${e.message}` } : prev)
       } finally {
@@ -147,7 +146,8 @@ export default function Settings() {
     setName(p.name)
     setApiKey('')
     setApiBase(p.api_base)
-    setModelsText(p.models.map(m => m.id).join(', '))
+    const models = Array.isArray(p.models) ? p.models.map(m => m.id || m) : []
+    setModelsText(models.join(', '))
     setIsDefault(p.is_default)
   }
 
@@ -274,7 +274,7 @@ export default function Settings() {
                   </div>
                   <div className="text-[11px] text-gray-400 mt-1 truncate">{p.api_base}</div>
                   <div className="text-[11px] text-gray-400 mt-0.5 truncate">
-                    模型: {p.models.map(m => m.id).join(', ') || '未配置'}
+                    模型: {Array.isArray(p.models) ? p.models.map(m => m.id || m).join(', ') : '未配置'}
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0 ml-3">

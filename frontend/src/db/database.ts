@@ -76,7 +76,17 @@ export async function getProviders(): Promise<any[]> {
   try {
     const d = await getDb()
     const res = await d.query('SELECT * FROM providers ORDER BY is_default DESC, created_at DESC')
-    return sanitizeRows(res.values)
+    return sanitizeRows(res.values).map(row => {
+      // Parse models field from JSON string to array
+      let models = row.models
+      if (typeof models === 'string') {
+        try { models = JSON.parse(models) } catch { models = [] }
+      }
+      if (!Array.isArray(models)) models = []
+      // Ensure is_default is boolean
+      const isDefault = row.is_default === 1 || row.is_default === true
+      return { ...row, models, is_default: isDefault }
+    })
   } catch (e) {
     console.error('getProviders error:', e)
     return []
@@ -88,7 +98,7 @@ export async function addProvider(name: string, apiKey: string, apiBase: string,
   const id = genId()
   try {
     if (isDefault) {
-      await d.execute('UPDATE providers SET is_default = 0')
+      await d.run('UPDATE providers SET is_default = 0')
     }
   } catch (e) {
     console.error('addProvider update error:', e)
@@ -103,7 +113,7 @@ export async function updateProvider(id: string, name: string, apiKey: string, a
   const d = await getDb()
   try {
     if (isDefault) {
-      await d.execute('UPDATE providers SET is_default = 0')
+      await d.run('UPDATE providers SET is_default = 0')
     }
   } catch (e) {
     console.error('updateProvider update error:', e)

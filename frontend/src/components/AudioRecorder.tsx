@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import { blobToWavFile } from '../utils/audio'
+import { isNative } from '../platform'
 
 interface AudioRecorderProps {
   onRecorded: (file: File) => void
@@ -41,7 +42,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
           setSelectedDevice(audioInputs[0].deviceId)
         }
       } catch {
-        setError('无法访问麦克风，请检查浏览器权限')
+        setError(isNative() ? '无法访问麦克风，请在系统设置中允许录音权限' : '无法访问麦克风，请检查浏览器权限')
       }
     }
     enumDevices()
@@ -154,7 +155,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       drawWaveform()
     } catch (e: any) {
       if (e.name === 'NotAllowedError') {
-        setError('麦克风访问被拒绝，请在浏览器设置中允许访问')
+        setError(isNative() ? '麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风' : '麦克风访问被拒绝，请在浏览器设置中允许访问')
       } else if (e.name === 'NotFoundError') {
         setError('未找到麦克风设备')
       } else {
