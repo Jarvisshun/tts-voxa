@@ -77,13 +77,24 @@ export default function BatchProcess() {
       try {
         const resp = await getBatchStatus(activeJobId)
         if (resp.success) {
-          setActiveStatus(resp.data)
+          const data = resp.data
+          // Normalize: native DB returns 'items', server returns 'results'
+          if (!data.results && data.items) {
+            data.results = data.items.map((item: any, i: number) => ({
+              item_index: item.item_index ?? i,
+              status: item.status,
+              audio_path: item.audio_path,
+              error_message: item.error_message,
+              text_content: item.text_content,
+            }))
+          }
+          setActiveStatus(data)
           updateTask(activeJobId, {
-            status: resp.data.status,
-            progress: { current: resp.data.completed_items, total: resp.data.total_items },
+            status: data.status,
+            progress: { current: data.completed_items, total: data.total_items },
           })
-          if (isNative() && resp.data.results) {
-            for (const r of resp.data.results) {
+          if (isNative() && data.results) {
+            for (const r of data.results) {
               if (r.status === 'completed' && r.audio_path) loadNativeAudioUrl(activeJobId, r.item_index)
             }
           }
@@ -125,9 +136,20 @@ export default function BatchProcess() {
     try {
       const resp = await getBatchStatus(jobId)
       if (resp.success) {
-        setExpandedResults(resp.data)
-        if (isNative() && resp.data.results) {
-          for (const r of resp.data.results) {
+        // Normalize: native DB returns 'items', server returns 'results'
+        const data = resp.data
+        if (!data.results && data.items) {
+          data.results = data.items.map((item: any, i: number) => ({
+            item_index: item.item_index ?? i,
+            status: item.status,
+            audio_path: item.audio_path,
+            error_message: item.error_message,
+            text_content: item.text_content,
+          }))
+        }
+        setExpandedResults(data)
+        if (isNative() && data.results) {
+          for (const r of data.results) {
             if (r.status === 'completed' && r.audio_path) loadNativeAudioUrl(jobId, r.item_index)
           }
         }

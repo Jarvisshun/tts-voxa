@@ -3,6 +3,31 @@ import WaveSurfer from 'wavesurfer.js'
 import { blobToWavFile } from '../utils/audio'
 import { isNative } from '../platform'
 
+// Polyfill navigator.mediaDevices for Android WebView (non-secure context)
+if (isNative() && !navigator.mediaDevices) {
+  (navigator as any).mediaDevices = {}
+}
+if (isNative() && !navigator.mediaDevices.getUserMedia) {
+  navigator.mediaDevices.getUserMedia = (constraints: MediaStreamConstraints) =>
+    new Promise<MediaStream>((resolve, reject) => {
+      const nav = navigator as any
+      const fn = nav.getUserMedia || nav.webkitGetUserMedia || nav.mozGetUserMedia
+      if (!fn) return reject(new Error('getUserMedia not supported'))
+      fn.call(nav, constraints, resolve, reject)
+    })
+}
+if (isNative() && !navigator.mediaDevices.enumerateDevices) {
+  navigator.mediaDevices.enumerateDevices = () =>
+    new Promise<MediaDeviceInfo[]>((resolve) => {
+      const nav = navigator as any
+      if (nav.mediaDevices?.enumerateDevices) {
+        nav.mediaDevices.enumerateDevices().then(resolve)
+      } else {
+        resolve([])
+      }
+    })
+}
+
 interface AudioRecorderProps {
   onRecorded: (file: File) => void
 }

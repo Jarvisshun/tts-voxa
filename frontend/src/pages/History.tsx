@@ -10,6 +10,7 @@ export default function History() {
   const [loading, setLoading] = useState(false)
   const [audioUrls, setAudioUrls] = useState<Record<string, string>>({})
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const loadHistory = async (p: number) => {
     setLoading(true)
@@ -73,34 +74,84 @@ export default function History() {
       ) : (
         <div className="space-y-2">
           {items.map(item => (
-            <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-gray-700 truncate">{item.text_content}</div>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
-                    <span className="text-[11px] text-gray-400">模型: {item.model}</span>
-                    {item.voice && <span className="text-[11px] text-gray-400">音色: {item.voice}</span>}
-                    {item.emotion && <span className="text-[11px] text-gray-400">情感: {item.emotion}</span>}
-                    <span className="text-[11px] text-gray-400">格式: {item.format}</span>
+            <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all">
+              <button
+                onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                className="w-full p-4 text-left"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-gray-700 truncate">{item.text_content}</div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                      <span className="text-[11px] text-gray-400">模型: {item.model}</span>
+                      {item.voice && <span className="text-[11px] text-gray-400">音色: {item.voice}</span>}
+                      {item.emotion && <span className="text-[11px] text-gray-400">情感: {item.emotion}</span>}
+                      <span className="text-[11px] text-gray-400">格式: {item.format}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] text-gray-300 whitespace-nowrap">
+                      {new Date(item.created_at).toLocaleString('zh-CN')}
+                    </span>
+                    <svg className={`w-4 h-4 text-gray-300 transition-transform ${expandedId === item.id ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[11px] text-gray-300 whitespace-nowrap">
-                    {new Date(item.created_at).toLocaleString('zh-CN')}
-                  </span>
-                  <button
-                    onClick={() => handleDelete(item.id)}
-                    className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                    title="删除"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
-                  </button>
+              </button>
+
+              {/* Expandable detail view */}
+              {expandedId === item.id && (
+                <div className="border-t border-gray-100 px-4 pb-4">
+                  <div className="mt-3 space-y-2.5">
+                    <div>
+                      <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">合成文本</div>
+                      <div className="text-sm text-gray-700 bg-gray-50 rounded-xl p-3 leading-relaxed">{item.text_content}</div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-gray-50 rounded-xl p-2.5">
+                        <div className="text-[11px] text-gray-400">模型</div>
+                        <div className="text-sm text-gray-700 mt-0.5">{item.model}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-2.5">
+                        <div className="text-[11px] text-gray-400">音色</div>
+                        <div className="text-sm text-gray-700 mt-0.5">{item.voice || '默认'}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-2.5">
+                        <div className="text-[11px] text-gray-400">输出格式</div>
+                        <div className="text-sm text-gray-700 mt-0.5">{item.format}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-xl p-2.5">
+                        <div className="text-[11px] text-gray-400">语速</div>
+                        <div className="text-sm text-gray-700 mt-0.5">{item.speed ?? 1.0}x</div>
+                      </div>
+                      {item.emotion && (
+                        <div className="bg-gray-50 rounded-xl p-2.5 col-span-2">
+                          <div className="text-[11px] text-gray-400">情感风格</div>
+                          <div className="text-sm text-gray-700 mt-0.5">{item.emotion}</div>
+                        </div>
+                      )}
+                    </div>
+                    {item.audio_path && (
+                      <div className="mt-2">
+                        <WaveformPlayer audioSrc={isNative() ? (audioUrls[item.id] || '') : `/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                      </div>
+                    )}
+                    <div className="flex justify-end">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id) }}
+                        className="px-3 py-1.5 text-[11px] text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                      >
+                        删除此记录
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              {item.audio_path && (
-                <div className="mt-3">
+              )}
+
+              {/* Collapsed waveform */}
+              {expandedId !== item.id && item.audio_path && (
+                <div className="px-4 pb-4">
                   <WaveformPlayer audioSrc={isNative() ? (audioUrls[item.id] || '') : `/audio/${item.audio_path.split('/').pop()}`} height={32} />
                 </div>
               )}

@@ -150,14 +150,55 @@ export async function voiceDesign(
   return { audio: data.choices[0].message.audio.data, format: req.format || 'wav' }
 }
 
+function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): string {
+  const pcmBinary = atob(pcmBase64)
+  const pcmBytes = new Uint8Array(pcmBinary.length)
+  for (let i = 0; i < pcmBinary.length; i++) pcmBytes[i] = pcmBinary.charCodeAt(i)
+
+  const byteRate = sampleRate * numChannels * bitsPerSample / 8
+  const blockAlign = numChannels * bitsPerSample / 8
+  const bufferSize = 44 + pcmBytes.length
+  const buffer = new ArrayBuffer(bufferSize)
+  const view = new DataView(buffer)
+
+  const writeStr = (off: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)) }
+  writeStr(0, 'RIFF')
+  view.setUint32(4, bufferSize - 8, true)
+  writeStr(8, 'WAVE')
+  writeStr(12, 'fmt ')
+  view.setUint32(16, 16, true)
+  view.setUint16(20, 1, true) // PCM format
+  view.setUint16(22, numChannels, true)
+  view.setUint32(24, sampleRate, true)
+  view.setUint32(28, byteRate, true)
+  view.setUint16(32, blockAlign, true)
+  view.setUint16(34, bitsPerSample, true)
+  writeStr(36, 'data')
+  view.setUint32(40, pcmBytes.length, true)
+
+  new Uint8Array(buffer).set(pcmBytes, 44)
+
+  let binary = ''
+  const wavBytes = new Uint8Array(buffer)
+  for (let i = 0; i < wavBytes.length; i++) binary += String.fromCharCode(wavBytes[i])
+  return btoa(binary)
+}
+
 export async function synthesizeAndSave(req: TTSRequest): Promise<TTSResponse> {
   try {
     const result = await tts(req)
+    let audioBase64 = result.audio
+    let saveFormat = result.format
+    // PCM needs WAV header to be playable
+    if (result.format === 'pcm') {
+      audioBase64 = pcmToWavBase64(result.audio)
+      saveFormat = 'wav'
+    }
     const genId = `gen_${crypto.randomUUID().slice(0, 12)}`
-    const audioPath = await saveAudio(result.audio, result.format, genId)
+    const audioPath = await saveAudio(audioBase64, saveFormat, genId)
     const { insertGeneration } = await import('../db/database')
-    await insertGeneration(genId, req.model || 'mimo-v2.5-tts', req.voice || 'mimo_default', req.text, audioPath, result.format, req.speed || 1.0, req.emotion || null)
-    return { success: true, data: { audio: result.audio, format: result.format, generation_id: genId } }
+    await insertGeneration(genId, req.model || 'mimo-v2.5-tts', req.voice || 'mimo_default', req.text, audioPath, saveFormat, req.speed || 1.0, req.emotion || null)
+    return { success: true, data: { audio: audioBase64, format: saveFormat, generation_id: genId } }
   } catch (e: any) {
     return { success: false, error: { code: 'TTS_ERROR', message: e.message } }
   }
