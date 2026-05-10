@@ -36,6 +36,12 @@ async def clone_synthesize(
         audio_path = save_audio(result["audio"], format, "clone")
         gen_id = f"gen_{uuid.uuid4().hex[:12]}"
 
+        await db.execute(
+            "INSERT INTO generations (id, model, voice, text_content, audio_path, format, emotion) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (gen_id, "clone", None, text, audio_path, format, emotion),
+        )
+        await db.commit()
+
         return {
             "success": True,
             "data": {

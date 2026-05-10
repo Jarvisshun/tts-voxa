@@ -30,7 +30,7 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-app = FastAPI(title="TTS Voxa", version="1.1.0")
+app = FastAPI(title="TTS Voxa", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,

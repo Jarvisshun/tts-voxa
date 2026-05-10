@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getHistory } from '../api/client'
+import WaveformPlayer from '../components/WaveformPlayer'
 
 export default function History() {
   const [items, setItems] = useState<any[]>([])
@@ -57,9 +58,9 @@ export default function History() {
                 </span>
               </div>
               {item.audio_path && (
-                <audio controls className="w-full mt-3" preload="none">
-                  <source src={`/audio/${item.audio_path.split('/').pop()}`} />
-                </audio>
+                <div className="mt-3">
+                  <WaveformPlayer audioSrc={`/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                </div>
               )}
             </div>
           ))}

@@ -25,6 +25,12 @@ async def synthesize(req: TTSRequest, db=Depends(get_db)):
         audio_path = save_audio(result["audio"], req.format.value, "tts")
         gen_id = f"gen_{uuid.uuid4().hex[:12]}"
 
+        await db.execute(
+            "INSERT INTO generations (id, model, voice, text_content, audio_path, format, speed, emotion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (gen_id, req.model, req.voice, req.text, audio_path, req.format.value, req.speed, req.emotion),
+        )
+        await db.commit()
+
         return {
             "success": True,
             "data": {

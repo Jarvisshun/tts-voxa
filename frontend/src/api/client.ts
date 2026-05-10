@@ -137,3 +137,17 @@ export async function getHistory(page = 1, limit = 20) {
     `/history?page=${page}&limit=${limit}`
   )
 }
+
+export async function getRecentTasks(limit = 20) {
+  return request<{ success: boolean; data: any[] }>(
+    `/history/tasks?limit=${limit}`
+  )
+}
+
+export async function getBatchList() {
+  return request<{ success: boolean; data: any[] }>('/batch/list')
+}
+
+export function getBatchItemAudioUrl(jobId: string, itemIndex: number): string {
+  return `${API_BASE}/batch/${jobId}/items/${itemIndex}/audio`
+}

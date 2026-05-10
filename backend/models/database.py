@@ -15,6 +15,7 @@ async def get_db():
 
 async def init_db():
     async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("PRAGMA journal_mode=WAL")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS voices (
                 id TEXT PRIMARY KEY,
@@ -49,8 +50,23 @@ async def init_db():
                 completed_items INTEGER DEFAULT 0,
                 voice TEXT,
                 model TEXT,
+                format TEXT DEFAULT 'wav',
+                speed REAL DEFAULT 1.0,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 completed_at DATETIME
+            )
+        """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS batch_items (
+                id TEXT PRIMARY KEY,
+                job_id TEXT NOT NULL,
+                item_index INTEGER NOT NULL,
+                text_content TEXT NOT NULL,
+                status TEXT DEFAULT 'pending',
+                audio_path TEXT,
+                error_message TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (job_id) REFERENCES batch_jobs(id)
             )
         """)
         await db.execute("""
@@ -64,4 +80,15 @@ async def init_db():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # Migrate: add format/speed columns to batch_jobs if missing
+        try:
+            await db.execute("SELECT format FROM batch_jobs LIMIT 0")
+        except Exception:
+            await db.execute("ALTER TABLE batch_jobs ADD COLUMN format TEXT DEFAULT 'wav'")
+        try:
+            await db.execute("SELECT speed FROM batch_jobs LIMIT 0")
+        except Exception:
+            await db.execute("ALTER TABLE batch_jobs ADD COLUMN speed REAL DEFAULT 1.0")
+
         await db.commit()

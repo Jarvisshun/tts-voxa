@@ -20,6 +20,12 @@ async def generate_voice(req: VoiceDesignRequest, db=Depends(get_db)):
         audio_path = save_audio(result["audio"], req.format.value, "design")
         gen_id = f"gen_{uuid.uuid4().hex[:12]}"
 
+        await db.execute(
+            "INSERT INTO generations (id, model, voice, text_content, audio_path, format) VALUES (?, ?, ?, ?, ?, ?)",
+            (gen_id, "design", None, req.text, audio_path, req.format.value),
+        )
+        await db.commit()
+
         return {
             "success": True,
             "data": {

@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { cloneSynthesize, cloneSave } from '../api/client'
+import WaveformPlayer from '../components/WaveformPlayer'
+import AudioRecorder from '../components/AudioRecorder'
 
 export default function VoiceClone() {
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -11,9 +13,8 @@ export default function VoiceClone() {
   const [error, setError] = useState('')
   const [saveName, setSaveName] = useState('')
   const [saved, setSaved] = useState(false)
+  const [inputMode, setInputMode] = useState<'upload' | 'record'>('upload')
   const fileRef = useRef<HTMLInputElement>(null)
-  const audioRef = useRef<HTMLAudioElement>(null)
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -53,60 +54,78 @@ export default function VoiceClone() {
     }
   }
 
-  useEffect(() => {
-    if (audioSrc && audioRef.current) {
-      audioRef.current.load()
-    }
-  }, [audioSrc])
-
   return (
     <div className="space-y-4">
-      {/* Upload */}
+      {/* Upload / Record */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">上传参考音频</h2>
-        <div
-          className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all"
-          onClick={() => fileRef.current?.click()}
-        >
-          <input
-            ref={fileRef}
-            type="file"
-            accept="audio/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          {audioFile ? (
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
-                </svg>
-              </div>
-              <div className="text-gray-800 font-medium truncate max-w-xs mx-auto">{audioFile.name}</div>
-              <div className="text-xs text-gray-400 mt-1">
-                {(audioFile.size / 1024).toFixed(1)} KB
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
-                </svg>
-              </div>
-              <div className="text-gray-500 text-sm">点击上传音频文件</div>
-              <div className="text-[11px] text-gray-400 mt-1">WAV / MP3，最大 10MB</div>
-            </div>
-          )}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-700">参考音频</h2>
+          <div className="flex bg-gray-100 rounded-lg p-0.5">
+            <button
+              onClick={() => setInputMode('upload')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                inputMode === 'upload' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              上传文件
+            </button>
+            <button
+              onClick={() => setInputMode('record')}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                inputMode === 'record' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              现场录制
+            </button>
+          </div>
         </div>
 
-        {audioFile && (
-          <div className="mt-4">
-            <div className="text-xs text-gray-500 mb-2 font-medium">参考音频预览</div>
-            <audio controls className="w-full">
-              <source src={URL.createObjectURL(audioFile)} />
-            </audio>
-          </div>
+        {inputMode === 'upload' ? (
+          <>
+            <div
+              className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/30 transition-all"
+              onClick={() => fileRef.current?.click()}
+            >
+              <input
+                ref={fileRef}
+                type="file"
+                accept="audio/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              {audioFile ? (
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-indigo-500" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z" />
+                    </svg>
+                  </div>
+                  <div className="text-gray-800 font-medium truncate max-w-xs mx-auto">{audioFile.name}</div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    {(audioFile.size / 1024).toFixed(1)} KB
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                    <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                    </svg>
+                  </div>
+                  <div className="text-gray-500 text-sm">点击上传音频文件</div>
+                  <div className="text-[11px] text-gray-400 mt-1">WAV / MP3，最大 10MB</div>
+                </div>
+              )}
+            </div>
+            {audioFile && (
+              <div className="mt-4">
+                <div className="text-xs text-gray-500 mb-2 font-medium">参考音频预览</div>
+                <WaveformPlayer audioSrc={URL.createObjectURL(audioFile)} height={40} />
+              </div>
+            )}
+          </>
+        ) : (
+          <AudioRecorder onRecorded={(file) => { setAudioFile(file); setSaved(false) }} />
         )}
       </div>
 
@@ -176,13 +195,8 @@ export default function VoiceClone() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700">合成结果</span>
-            <a href={audioSrc} download={`clone_output.${format}`} className="text-xs text-indigo-500 hover:text-indigo-600 transition-colors font-medium">
-              下载 .{format}
-            </a>
           </div>
-          <audio ref={audioRef} controls className="w-full">
-            <source src={audioSrc} />
-          </audio>
+          <WaveformPlayer audioSrc={audioSrc} showDownload downloadFilename={`clone_output.${format}`} />
         </div>
       )}
 

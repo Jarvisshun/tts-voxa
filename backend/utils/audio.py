@@ -21,6 +21,6 @@ def read_audio_to_base64(filepath: str) -> str:
 
 def get_audio_format(filename: str) -> str:
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "wav"
-    if ext in ("wav", "mp3", "pcm", "pcm16"):
+    if ext in ("wav", "mp3", "pcm", "pcm16", "webm", "ogg"):
         return ext
     return "wav"

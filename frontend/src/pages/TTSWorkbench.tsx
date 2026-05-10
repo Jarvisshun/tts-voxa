@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { synthesizeTTS, getModels, getPresets, type TTSRequest } from '../api/client'
+import WaveformPlayer from '../components/WaveformPlayer'
 
 interface ModelItem {
   id: string
@@ -24,8 +25,6 @@ export default function TTSWorkbench() {
   const [loading, setLoading] = useState(false)
   const [audioSrc, setAudioSrc] = useState('')
   const [error, setError] = useState('')
-  const audioRef = useRef<HTMLAudioElement>(null)
-
   const [models, setModels] = useState<ModelItem[]>([])
   const [voices, setVoices] = useState<VoiceItem[]>([
     { id: 'mimo_default', name: '默认', style: '标准音色' },
@@ -73,12 +72,6 @@ export default function TTSWorkbench() {
       setLoading(false)
     }
   }
-
-  useEffect(() => {
-    if (audioSrc && audioRef.current) {
-      audioRef.current.load()
-    }
-  }, [audioSrc])
 
   const speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
 
@@ -242,20 +235,8 @@ export default function TTSWorkbench() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700">合成结果</span>
-            <a
-              href={audioSrc}
-              download={`tts_output.${format}`}
-              className="text-xs text-indigo-500 hover:text-indigo-600 flex items-center gap-1 transition-colors font-medium"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-              </svg>
-              下载 .{format}
-            </a>
           </div>
-          <audio ref={audioRef} controls className="w-full">
-            <source src={audioSrc} />
-          </audio>
+          <WaveformPlayer audioSrc={audioSrc} showDownload downloadFilename={`tts_output.${format}`} />
         </div>
       )}
     </div>

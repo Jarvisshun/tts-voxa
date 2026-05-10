@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { designVoice } from '../api/client'
+import WaveformPlayer from '../components/WaveformPlayer'
 
 export default function VoiceDesign() {
   const [description, setDescription] = useState('温柔的女声，语速适中，带点甜美的感觉')
@@ -8,8 +9,6 @@ export default function VoiceDesign() {
   const [loading, setLoading] = useState(false)
   const [audioSrc, setAudioSrc] = useState('')
   const [error, setError] = useState('')
-  const audioRef = useRef<HTMLAudioElement>(null)
-
   const examples = [
     '温柔的女声，语速适中，带点甜美的感觉',
     '低沉的男声，像新闻播音员一样专业',
@@ -38,12 +37,6 @@ export default function VoiceDesign() {
       setLoading(false)
     }
   }
-
-  useEffect(() => {
-    if (audioSrc && audioRef.current) {
-      audioRef.current.load()
-    }
-  }, [audioSrc])
 
   return (
     <div className="space-y-4">
@@ -127,13 +120,8 @@ export default function VoiceDesign() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700">生成结果</span>
-            <a href={audioSrc} download={`design_output.${format}`} className="text-xs text-violet-500 hover:text-violet-600 transition-colors font-medium">
-              下载 .{format}
-            </a>
           </div>
-          <audio ref={audioRef} controls className="w-full">
-            <source src={audioSrc} />
-          </audio>
+          <WaveformPlayer audioSrc={audioSrc} showDownload downloadFilename={`design_output.${format}`} />
         </div>
       )}
     </div>

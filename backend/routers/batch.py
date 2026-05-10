@@ -1,36 +1,41 @@
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import FileResponse
 from models.schemas import BatchCreateRequest
 from services.mimo_client import get_client_for_provider
 from utils.audio import save_audio
 from models.database import get_db
+import aiosqlite
+from utils.config import DATABASE_PATH
 import uuid
 import asyncio
+import os
 
 router = APIRouter()
 
-batch_jobs: dict[str, dict] = {}
+# In-memory cache for active jobs (holds the client object)
+active_jobs: dict[str, dict] = {}
 
 
 @router.post("/create")
 async def create_batch(req: BatchCreateRequest, db=Depends(get_db)):
     job_id = f"job_{uuid.uuid4().hex[:12]}"
-
     client = await get_client_for_provider(db)
 
-    batch_jobs[job_id] = {
-        "job_id": job_id,
-        "name": req.name,
-        "status": "pending",
-        "total_items": len(req.texts),
-        "completed_items": 0,
-        "voice": req.voice,
-        "model": req.model,
-        "format": req.format.value,
-        "speed": req.speed,
-        "texts": req.texts,
-        "results": [],
-        "client": client,
-    }
+    # Store client in memory cache
+    active_jobs[job_id] = {"client": client}
+
+    # Persist job to SQLite
+    await db.execute(
+        "INSERT INTO batch_jobs (id, name, status, total_items, completed_items, voice, model, format, speed) VALUES (?, ?, 'pending', ?, 0, ?, ?, ?, ?)",
+        (job_id, req.name, len(req.texts), req.voice, req.model, req.format.value, req.speed),
+    )
+    for i, text in enumerate(req.texts):
+        item_id = f"bi_{uuid.uuid4().hex[:12]}"
+        await db.execute(
+            "INSERT INTO batch_items (id, job_id, item_index, text_content, status) VALUES (?, ?, ?, ?, 'pending')",
+            (item_id, job_id, i, text),
+        )
+    await db.commit()
 
     asyncio.create_task(_process_batch(job_id))
 
@@ -40,46 +45,130 @@ async def create_batch(req: BatchCreateRequest, db=Depends(get_db)):
     }
 
 
+@router.get("/list")
+async def list_batches():
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM batch_jobs ORDER BY created_at DESC LIMIT 20"
+        )
+        rows = await cursor.fetchall()
+        return {"success": True, "data": [dict(row) for row in rows]}
+
+
 @router.get("/{job_id}/status")
 async def get_batch_status(job_id: str):
-    job = batch_jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {
-        "success": True,
-        "data": {
-            "job_id": job["job_id"],
-            "name": job["name"],
-            "status": job["status"],
-            "total_items": job["total_items"],
-            "completed_items": job["completed_items"],
-            "results": job["results"],
-        },
-    }
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute("SELECT * FROM batch_jobs WHERE id = ?", (job_id,))
+        job = await cursor.fetchone()
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        items_cursor = await db.execute(
+            "SELECT * FROM batch_items WHERE job_id = ? ORDER BY item_index",
+            (job_id,),
+        )
+        items = await items_cursor.fetchall()
+
+        return {
+            "success": True,
+            "data": {
+                "job_id": dict(job)["id"],
+                "name": dict(job)["name"],
+                "status": dict(job)["status"],
+                "total_items": dict(job)["total_items"],
+                "completed_items": dict(job)["completed_items"],
+                "results": [dict(item) for item in items],
+            },
+        }
+
+
+@router.get("/{job_id}/items/{item_index}/audio")
+async def get_batch_item_audio(job_id: str, item_index: int):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cursor = await db.execute(
+            "SELECT * FROM batch_items WHERE job_id = ? AND item_index = ?",
+            (job_id, item_index),
+        )
+        item = await cursor.fetchone()
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+        item_dict = dict(item)
+        if item_dict["status"] != "completed" or not item_dict["audio_path"]:
+            raise HTTPException(status_code=404, detail="Audio not available")
+
+        if not os.path.exists(item_dict["audio_path"]):
+            raise HTTPException(status_code=404, detail="Audio file not found")
+
+        return FileResponse(item_dict["audio_path"], media_type="audio/wav")
 
 
 async def _process_batch(job_id: str):
-    job = batch_jobs[job_id]
-    job["status"] = "running"
-    client = job["client"]
+    client = active_jobs.get(job_id, {}).get("client")
+    if not client:
+        return
 
-    for i, text in enumerate(job["texts"]):
-        try:
-            result = await client.tts(
-                text=text,
-                model=job["model"],
-                voice=job["voice"],
-                format=job["format"],
-                speed=job["speed"],
-            )
-            audio_path = save_audio(result["audio"], job["format"], f"batch_{i}")
-            job["results"].append(
-                {"index": i, "audio_path": audio_path, "status": "completed"}
-            )
-        except Exception as e:
-            job["results"].append(
-                {"index": i, "error": str(e), "status": "failed"}
-            )
-        job["completed_items"] = i + 1
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute("UPDATE batch_jobs SET status = 'running' WHERE id = ?", (job_id,))
+        await db.commit()
 
-    job["status"] = "completed"
+        cursor = await db.execute(
+            "SELECT * FROM batch_items WHERE job_id = ? ORDER BY item_index",
+            (job_id,),
+        )
+        items = await cursor.fetchall()
+
+        job_cursor = await db.execute("SELECT * FROM batch_jobs WHERE id = ?", (job_id,))
+        job_row = await job_cursor.fetchone()
+        job = dict(job_row)
+
+        for item in items:
+            item_dict = dict(item)
+            i = item_dict["item_index"]
+            text = item_dict["text_content"]
+
+            try:
+                result = await client.tts(
+                    text=text,
+                    model=job["model"],
+                    voice=job["voice"],
+                    format=job.get("format", "wav"),
+                    speed=job.get("speed", 1.0),
+                )
+                audio_path = save_audio(result["audio"], job.get("format", "wav"), f"batch_{i}")
+
+                await db.execute(
+                    "UPDATE batch_items SET status = 'completed', audio_path = ? WHERE id = ?",
+                    (audio_path, item_dict["id"]),
+                )
+
+                # Also insert into generations table for history
+                gen_id = f"gen_{uuid.uuid4().hex[:12]}"
+                await db.execute(
+                    "INSERT INTO generations (id, model, voice, text_content, audio_path, format, speed) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (gen_id, job.get("model", "mimo-v2.5-tts"), job["voice"], text, audio_path, job.get("format", "wav"), job.get("speed", 1.0)),
+                )
+            except Exception as e:
+                await db.execute(
+                    "UPDATE batch_items SET status = 'failed', error_message = ? WHERE id = ?",
+                    (str(e), item_dict["id"]),
+                )
+
+            await db.execute(
+                "UPDATE batch_jobs SET completed_items = ? WHERE id = ?",
+                (i + 1, job_id),
+            )
+            await db.commit()
+
+        await db.execute(
+            "UPDATE batch_jobs SET status = 'completed', completed_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (job_id,),
+        )
+        await db.commit()
+
+    # Clean up in-memory cache
+    active_jobs.pop(job_id, None)
