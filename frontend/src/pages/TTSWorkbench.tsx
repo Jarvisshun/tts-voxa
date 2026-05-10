@@ -37,7 +37,9 @@ export default function TTSWorkbench() {
         setModels(res.data)
         if (!model) setModel(res.data[0].id)
       }
-    }).catch(() => {})
+    }).catch(() => {
+      setError('无法加载模型列表，请在设置中配置服务商')
+    })
     getPresets().then(res => {
       if (res.success) setVoices(res.data)
     }).catch(() => {})

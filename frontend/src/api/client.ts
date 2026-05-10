@@ -127,8 +127,8 @@ export async function getPresets() {
 }
 
 export async function getModels() {
-  return request<{ success: boolean; data: Array<{ id: string; name: string; type: string }> }>(
-    '/models'
+  return request<{ success: boolean; data: Array<{ id: string; name: string; type: string; provider?: string }> }>(
+    '/config/models'
   )
 }
 

@@ -1,8 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from starlette.routing import NoMatchFound
+from fastapi.responses import FileResponse, JSONResponse
 import uvicorn
 import os
 import sys
@@ -15,7 +14,6 @@ from models.database import init_db
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
-        # Try multiple locations for static files
         exe_dir = os.path.dirname(sys.executable)
         candidates = [
             getattr(sys, "_MEIPASS", ""),
@@ -30,6 +28,7 @@ def get_base_dir():
 
 
 BASE_DIR = get_base_dir()
+STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 app = FastAPI(title="MiMo TTS Studio", version="1.0.0")
 
@@ -82,20 +81,27 @@ async def health():
     return {"status": "ok"}
 
 
-static_dir = os.path.join(BASE_DIR, "static")
-if os.path.isdir(static_dir):
-    app.mount("/assets", StaticFiles(directory=os.path.join(static_dir, "assets")), name="assets")
+# Mount static files and SPA routes only if static dir exists
+if os.path.isdir(STATIC_DIR):
+    app.mount("/assets", StaticFiles(directory=os.path.join(STATIC_DIR, "assets")), name="assets")
 
     @app.get("/")
     async def serve_index():
-        return FileResponse(os.path.join(static_dir, "index.html"))
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = os.path.join(static_dir, full_path)
+        file_path = os.path.join(STATIC_DIR, full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(static_dir, "index.html"))
+        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+else:
+    @app.get("/")
+    async def no_static_root():
+        return JSONResponse(
+            {"error": "Frontend not found", "static_dir": STATIC_DIR, "exists": False},
+            status_code=503,
+        )
 
 
 def find_free_port(start=8000, end=8020):
@@ -120,6 +126,7 @@ if __name__ == "__main__":
     try:
         port = find_free_port()
         print(f"Starting MiMo TTS Studio on http://localhost:{port}")
+        print(f"Static dir: {STATIC_DIR} (exists={os.path.isdir(STATIC_DIR)})")
         if getattr(sys, "frozen", False):
             threading.Thread(target=open_browser, args=(port,), daemon=True).start()
         uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
