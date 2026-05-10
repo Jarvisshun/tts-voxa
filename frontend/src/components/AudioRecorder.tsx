@@ -7,7 +7,7 @@ interface AudioRecorderProps {
   onRecorded: (file: File) => void
 }
 
-type RecorderState = 'idle' | 'recording' | 'recorded'
+type RecorderState = 'idle' | 'starting' | 'recording' | 'recorded'
 
 export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -86,6 +86,8 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   }, [])
 
   const startRecording = async () => {
+    if (state !== 'idle') return
+    setState('starting')
     setError('')
     try {
       const constraints: MediaStreamConstraints = {
@@ -154,6 +156,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       // Start waveform drawing
       drawWaveform()
     } catch (e: any) {
+      setState('idle')
       if (e.name === 'NotAllowedError') {
         setError(isNative() ? '麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风' : '麦克风访问被拒绝，请在浏览器设置中允许访问')
       } else if (e.name === 'NotFoundError') {
@@ -260,16 +263,17 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
       {/* Controls */}
       <div className="flex gap-2">
-        {state === 'idle' && (
+        {(state === 'idle' || state === 'starting') && (
           <button
             onClick={startRecording}
-            className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 rounded-xl font-medium text-sm text-white transition-all shadow-sm flex items-center justify-center gap-2"
+            disabled={state !== 'idle'}
+            className="flex-1 py-3 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 disabled:from-gray-300 disabled:to-gray-300 disabled:text-gray-500 rounded-xl font-medium text-sm text-white transition-all shadow-sm flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z" />
               <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z" />
             </svg>
-            开始录音
+            {state === 'starting' ? '正在启动...' : '开始录音'}
           </button>
         )}
         {state === 'recording' && (
