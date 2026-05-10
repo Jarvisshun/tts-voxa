@@ -45,7 +45,7 @@ export default function Settings() {
       const info = await checkUpdate()
       setUpdateInfo(info)
     } catch (e: any) {
-      setUpdateInfo({ current: currentVersion, latest: currentVersion, has_update: false, download_url: null, release_notes: `检查失败: ${e.message}` })
+      setUpdateInfo({ current: currentVersion, latest: currentVersion, has_update: false, download_url: null, release_notes: null, error: `检查失败: ${e.message}` })
     } finally {
       setCheckingUpdate(false)
     }
@@ -280,13 +280,20 @@ export default function Settings() {
 
         {updateInfo && (
           <div className={`mt-4 p-4 rounded-xl border ${
-            updateInfo.has_update
-              ? 'bg-blue-50 border-blue-100'
-              : updateInfo.release_notes?.startsWith('检查失败')
-                ? 'bg-red-50 border-red-100'
+            updateInfo.error
+              ? 'bg-red-50 border-red-100'
+              : updateInfo.has_update
+                ? 'bg-blue-50 border-blue-100'
                 : 'bg-emerald-50 border-emerald-100'
           }`}>
-            {updateInfo.has_update ? (
+            {updateInfo.error ? (
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+                <span className="text-red-600 text-sm font-medium">{updateInfo.error}</span>
+              </div>
+            ) : updateInfo.has_update ? (
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-blue-600 font-medium text-sm">发现新版本 v{updateInfo.latest}</span>
@@ -297,7 +304,7 @@ export default function Settings() {
                   </div>
                 )}
                 <button
-                  onClick={() => window.open(updateInfo.download_url!, '_blank')}
+                  onClick={() => updateInfo.download_url && window.open(updateInfo.download_url, '_blank')}
                   className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-xl text-sm font-medium text-white transition-all shadow-sm"
                 >
                   下载更新
@@ -308,9 +315,7 @@ export default function Settings() {
                 <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-                <span className="text-emerald-600 text-sm font-medium">
-                  {updateInfo.release_notes?.startsWith('检查失败') ? updateInfo.release_notes : '已是最新版本'}
-                </span>
+                <span className="text-emerald-600 text-sm font-medium">已是最新版本</span>
               </div>
             )}
           </div>

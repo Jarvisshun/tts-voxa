@@ -158,6 +158,7 @@ export interface UpdateInfo {
   has_update: boolean
   download_url: string | null
   release_notes: string | null
+  error?: string
 }
 
 export async function getVersion() {

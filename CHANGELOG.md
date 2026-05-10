@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.1.0 (2026-05-11)
+
+### New Features
+- **Standalone Desktop App**: Exe now opens in a native OS window (Edge WebView2) instead of external browser
+- **Auto-Update Check**: Settings page checks GitHub for new releases with download link
+
+### Backend Changes
+- Added `pywebview` for native window rendering in exe mode
+- Server binds to `127.0.0.1` in exe mode (not exposed to network)
+- Window auto-closes server on exit
+- Updated GitHub repo reference to `tts-voxa`
+
+### Build Changes
+- Added `--windowed` flag to PyInstaller (no console window)
+- Added `pywebview` to requirements and hidden imports
+
 ## v2.0.1 (2026-05-11)
 
 ### New Features

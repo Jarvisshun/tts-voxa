@@ -14,6 +14,12 @@ import time
 from routers import tts, clone, design, batch, voices, history, config
 from models.database import init_db
 
+try:
+    import webview
+    WEBVIEW_AVAILABLE = True
+except ImportError:
+    WEBVIEW_AVAILABLE = False
+
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
@@ -33,14 +39,14 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-__version__ = "2.0.1"
+__version__ = "2.1.0"
 
 app = FastAPI(title="TTS Voxa", version=__version__)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -98,7 +104,7 @@ def _parse_version(v: str) -> tuple[int, ...]:
     return tuple(parts) or (0,)
 
 
-GITHUB_REPO = "Jarvisshun/mimo-tts-studio"
+GITHUB_REPO = "Jarvisshun/tts-voxa"
 _update_cache = {"data": None, "ts": 0}
 
 
@@ -143,11 +149,11 @@ async def check_update():
                 result["has_update"] = _parse_version(latest_ver) > _parse_version(__version__)
                 result["download_url"] = download_url
                 result["release_notes"] = data.get("body", "")
+                _update_cache["data"] = result
+                _update_cache["ts"] = now
     except Exception:
-        pass
+        result["error"] = "检查失败，请稍后重试"
 
-    _update_cache["data"] = result
-    _update_cache["ts"] = now
     return result
 
 
@@ -161,10 +167,15 @@ if os.path.isdir(STATIC_DIR):
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
-        file_path = os.path.join(STATIC_DIR, full_path)
+        file_path = os.path.realpath(os.path.join(STATIC_DIR, full_path))
+        if not file_path.startswith(os.path.realpath(STATIC_DIR) + os.sep):
+            return JSONResponse({"error": "forbidden"}, status_code=403)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+        index = os.path.join(STATIC_DIR, "index.html")
+        if os.path.isfile(index):
+            return FileResponse(index)
+        return JSONResponse({"error": "not found"}, status_code=404)
 else:
     @app.get("/")
     async def no_static_root():
@@ -186,10 +197,48 @@ def find_free_port(start=8000, end=8020):
     return start
 
 
-def open_browser(port):
-    import time
-    time.sleep(2)
-    webbrowser.open(f"http://localhost:{port}")
+def run_webview_app(port: int):
+    """Launch native window with pywebview (exe mode)."""
+    import asyncio
+
+    config = uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning")
+    server = uvicorn.Server(config)
+
+    loop = asyncio.new_event_loop()
+
+    def start_server():
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(server.serve())
+        loop.close()
+
+    server_thread = threading.Thread(target=start_server, daemon=True)
+    server_thread.start()
+
+    url = f"http://127.0.0.1:{port}"
+    # Wait for server to be ready
+    import time as _time
+    for _ in range(30):
+        try:
+            import urllib.request
+            urllib.request.urlopen(url + "/api/health", timeout=1)
+            break
+        except Exception:
+            _time.sleep(0.3)
+
+    window = webview.create_window(
+        "TTS Voxa",
+        url,
+        width=1280,
+        height=860,
+        min_size=(960, 640),
+    )
+
+    def on_closed():
+        server.should_exit = True
+        loop.call_soon_threadsafe(loop.stop)
+
+    window.events.closed += on_closed
+    webview.start(gui="edgechromium")
 
 
 if __name__ == "__main__":
@@ -197,9 +246,15 @@ if __name__ == "__main__":
         port = find_free_port()
         print(f"Starting TTS Voxa on http://localhost:{port}")
         print(f"Static dir: {STATIC_DIR} (exists={os.path.isdir(STATIC_DIR)})")
-        if getattr(sys, "frozen", False):
-            threading.Thread(target=open_browser, args=(port,), daemon=True).start()
-        uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+        if getattr(sys, "frozen", False) and WEBVIEW_AVAILABLE:
+            run_webview_app(port)
+        else:
+            if getattr(sys, "frozen", False):
+                threading.Thread(
+                    target=lambda: (time.sleep(2), webbrowser.open(f"http://localhost:{port}")),
+                    daemon=True,
+                ).start()
+            uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
     except Exception as e:
         print(f"\nError: {e}")
         input("Press Enter to exit...")

@@ -8,7 +8,7 @@ import stat
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # Install PyInstaller
-subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "--quiet"])
+subprocess.check_call([sys.executable, "-m", "pip", "install", "pyinstaller", "pywebview", "--quiet"])
 
 APP_NAME = "TTS Voxa"
 TEMP_DIST = "_dist_temp"
@@ -37,6 +37,7 @@ subprocess.check_call([
     sys.executable, "-m", "PyInstaller",
     "--noconfirm",
     "--onedir",
+    "--windowed",
     "--name", APP_NAME,
     "--distpath", TEMP_DIST,
     "--exclude-module", "tkinter",
@@ -63,6 +64,9 @@ subprocess.check_call([
     "--hidden-import", "uvicorn.protocols.websockets.auto",
     "--hidden-import", "uvicorn.lifespan",
     "--hidden-import", "uvicorn.lifespan.on",
+    "--hidden-import", "webview",
+    "--hidden-import", "webview.platforms",
+    "--hidden-import", "webview.platforms.edgechromium",
     "main.py",
 ])
 
