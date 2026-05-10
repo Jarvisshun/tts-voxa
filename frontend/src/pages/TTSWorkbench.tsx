@@ -83,32 +83,32 @@ export default function TTSWorkbench() {
   const speedPresets = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
 
   return (
-    <div className="space-y-5">
-      {/* Top: Text + Voice side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <div className="space-y-4">
+      {/* Top: Text + Voice */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Text Input */}
         <div className="lg:col-span-2">
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
-            <label className="block text-sm font-medium text-slate-300 mb-3">合成文本</label>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">合成文本</label>
             <textarea
               value={text}
               onChange={e => setText(e.target.value)}
               rows={7}
               maxLength={5000}
-              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl p-4 text-slate-200 focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 focus:outline-none resize-none text-sm leading-relaxed transition-all"
+              className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-4 text-gray-800 placeholder-gray-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 focus:outline-none resize-none text-sm leading-relaxed transition-all"
               placeholder="输入要合成的文本..."
             />
             <div className="flex justify-between items-center mt-2">
-              <span className="text-[11px] text-slate-600">支持中英文混合</span>
-              <span className="text-[11px] text-slate-600">{text.length}/5000</span>
+              <span className="text-[11px] text-gray-400">支持中英文混合</span>
+              <span className="text-[11px] text-gray-400">{text.length}/5000</span>
             </div>
           </div>
         </div>
 
         {/* Voice Selector */}
         <div>
-          <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm h-full">
-            <label className="block text-sm font-medium text-slate-300 mb-3">选择音色</label>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 h-full">
+            <label className="block text-sm font-semibold text-gray-700 mb-3">选择音色</label>
             <div className="space-y-1.5 max-h-[340px] overflow-y-auto pr-1">
               {voices.map(v => (
                 <button
@@ -116,12 +116,12 @@ export default function TTSWorkbench() {
                   onClick={() => setVoice(v.id)}
                   className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-all ${
                     voice === v.id
-                      ? 'bg-gradient-to-r from-blue-600/90 to-blue-600/70 text-white shadow-md shadow-blue-500/10'
-                      : 'bg-slate-900/50 text-slate-400 hover:bg-slate-700/50 hover:text-slate-300'
+                      ? 'bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm'
+                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-800 border border-transparent'
                   }`}
                 >
                   <div className="font-medium truncate">{v.name}</div>
-                  <div className={`text-[11px] mt-0.5 truncate ${voice === v.id ? 'text-blue-100/70' : 'text-slate-600'}`}>
+                  <div className={`text-[11px] mt-0.5 truncate ${voice === v.id ? 'text-indigo-400' : 'text-gray-400'}`}>
                     {v.style}
                   </div>
                 </button>
@@ -132,15 +132,15 @@ export default function TTSWorkbench() {
       </div>
 
       {/* Controls Bar */}
-      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {/* Model */}
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">模型</label>
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">模型</label>
             <select
               value={model}
               onChange={e => setModel(e.target.value)}
-              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:border-blue-500/50 focus:outline-none truncate"
+              className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 focus:border-indigo-400 focus:outline-none truncate"
             >
               {models.length > 0 ? (
                 models.map(m => (
@@ -156,16 +156,16 @@ export default function TTSWorkbench() {
 
           {/* Format */}
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">输出格式</label>
-            <div className="flex gap-1">
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">输出格式</label>
+            <div className="flex gap-1.5">
               {['wav', 'mp3', 'pcm'].map(f => (
                 <button
                   key={f}
                   onClick={() => setFormat(f)}
                   className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     format === f
-                      ? 'bg-blue-600/80 text-white shadow-sm'
-                      : 'bg-slate-900/50 text-slate-500 hover:text-slate-300 hover:bg-slate-700/50'
+                      ? 'bg-indigo-500 text-white shadow-sm shadow-indigo-200'
+                      : 'bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200/70'
                   }`}
                 >
                   {f.toUpperCase()}
@@ -176,8 +176,8 @@ export default function TTSWorkbench() {
 
           {/* Speed */}
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">
-              语速 <span className="text-blue-400 normal-case">{speed.toFixed(1)}x</span>
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">
+              语速 <span className="text-indigo-500 normal-case font-medium">{speed.toFixed(1)}x</span>
             </label>
             <div className="flex gap-1">
               {speedPresets.map(s => (
@@ -186,8 +186,8 @@ export default function TTSWorkbench() {
                   onClick={() => setSpeed(s)}
                   className={`flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all ${
                     Math.abs(speed - s) < 0.01
-                      ? 'bg-blue-600/80 text-white'
-                      : 'bg-slate-900/50 text-slate-500 hover:text-slate-300'
+                      ? 'bg-indigo-500 text-white shadow-sm'
+                      : 'bg-gray-100 text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   {s}x
@@ -198,13 +198,13 @@ export default function TTSWorkbench() {
 
           {/* Emotion */}
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-2">情感</label>
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2">情感</label>
             <input
               type="text"
               value={emotion}
               onChange={e => setEmotion(e.target.value)}
               placeholder="如: 开心、温柔"
-              className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500/50 focus:outline-none"
+              className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none"
             />
           </div>
         </div>
@@ -214,7 +214,7 @@ export default function TTSWorkbench() {
       <button
         onClick={handleSynthesize}
         disabled={loading || !text.trim() || !model}
-        className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 rounded-2xl font-medium text-sm transition-all shadow-lg shadow-blue-500/10 hover:shadow-blue-500/20 disabled:shadow-none active:scale-[0.99]"
+        className="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 rounded-2xl font-medium text-sm text-white transition-all shadow-lg shadow-indigo-200/50 hover:shadow-indigo-300/50 disabled:shadow-none active:scale-[0.99]"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
@@ -229,24 +229,28 @@ export default function TTSWorkbench() {
 
       {/* Error */}
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm flex items-center gap-2">
-          <span className="text-lg">!</span>
+        <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-red-600 text-sm flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
           {error}
         </div>
       )}
 
       {/* Audio Player */}
       {audioSrc && (
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-slate-400">合成结果</span>
+            <span className="text-sm font-medium text-gray-700">合成结果</span>
             <a
               href={audioSrc}
               download={`tts_output.${format}`}
-              className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
+              className="text-xs text-indigo-500 hover:text-indigo-600 flex items-center gap-1 transition-colors font-medium"
             >
-              <span>下载</span>
-              <span className="text-sm">.{format}</span>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              下载 .{format}
             </a>
           </div>
           <audio ref={audioRef} controls className="w-full">

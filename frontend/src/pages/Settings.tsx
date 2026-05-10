@@ -110,13 +110,11 @@ export default function Settings() {
     setModelsText(preset.models)
   }
 
-  const inputCls = "w-full bg-slate-900/80 border border-slate-700/50 rounded-xl px-3 py-2.5 text-sm text-slate-200 placeholder-slate-600 focus:border-blue-500/50 focus:outline-none transition-all"
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Add/Edit Form */}
-      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
-        <h2 className="text-sm font-medium text-slate-300 mb-4">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">
           {editingId ? '编辑服务商' : '添加服务商'}
         </h2>
 
@@ -125,7 +123,7 @@ export default function Settings() {
             <button
               key={p.name}
               onClick={() => applyPreset(p)}
-              className="px-3 py-1.5 text-[11px] bg-slate-700/50 hover:bg-slate-600/50 rounded-lg text-slate-400 hover:text-slate-300 transition-all"
+              className="px-3 py-1.5 text-[11px] bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg text-gray-500 transition-all font-medium"
             >
               {p.name}
             </button>
@@ -134,45 +132,45 @@ export default function Settings() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">服务商名称</label>
-            <input value={name} onChange={e => setName(e.target.value)} placeholder="如: 小米 MiMo" className={inputCls} />
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">服务商名称</label>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="如: 小米 MiMo" className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">API Base URL</label>
-            <input value={apiBase} onChange={e => setApiBase(e.target.value)} placeholder="https://api.example.com/v1" className={inputCls} />
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">API Base URL</label>
+            <input value={apiBase} onChange={e => setApiBase(e.target.value)} placeholder="https://api.example.com/v1" className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">API Key</label>
-            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={editingId ? '留空则不修改' : '输入 API Key'} className={inputCls} />
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">API Key</label>
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder={editingId ? '留空则不修改' : '输入 API Key'} className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">模型列表</label>
-            <input value={modelsText} onChange={e => setModelsText(e.target.value)} placeholder="model-1, model-2（逗号分隔）" className={inputCls} />
+            <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">模型列表</label>
+            <input value={modelsText} onChange={e => setModelsText(e.target.value)} placeholder="model-1, model-2（逗号分隔）" className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all" />
           </div>
         </div>
 
         <div className="mt-4 flex items-center gap-2">
-          <input type="checkbox" id="isDefault" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} className="rounded accent-blue-500" />
-          <label htmlFor="isDefault" className="text-sm text-slate-400">设为默认服务商</label>
+          <input type="checkbox" id="isDefault" checked={isDefault} onChange={e => setIsDefault(e.target.checked)} className="rounded accent-indigo-500" />
+          <label htmlFor="isDefault" className="text-sm text-gray-500">设为默认服务商</label>
         </div>
 
         <div className="mt-5 flex gap-2">
           <button
             onClick={handleSave}
             disabled={loading || !name.trim() || !apiKey.trim() || !apiBase.trim()}
-            className="px-5 py-2.5 bg-blue-600/80 hover:bg-blue-500/80 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl text-sm font-medium transition-all"
+            className="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200"
           >
             {editingId ? '更新' : '添加'}
           </button>
           <button
             onClick={handleTest}
             disabled={loading || !apiKey.trim() || !apiBase.trim()}
-            className="px-5 py-2.5 bg-emerald-600/80 hover:bg-emerald-500/80 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl text-sm font-medium transition-all"
+            className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm"
           >
             测试连接
           </button>
           {editingId && (
-            <button onClick={resetForm} className="px-5 py-2.5 bg-slate-700/50 hover:bg-slate-600/50 rounded-xl text-sm text-slate-400 transition-all">
+            <button onClick={resetForm} className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-500 transition-all">
               取消
             </button>
           )}
@@ -181,8 +179,8 @@ export default function Settings() {
         {testResult && (
           <div className={`mt-4 p-3 rounded-xl text-sm ${
             testResult.type === 'success'
-              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+              ? 'bg-emerald-50 border border-emerald-100 text-emerald-600'
+              : 'bg-red-50 border border-red-100 text-red-600'
           }`}>
             {testResult.message}
           </div>
@@ -190,35 +188,37 @@ export default function Settings() {
       </div>
 
       {/* Provider List */}
-      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
-        <h2 className="text-sm font-medium text-slate-300 mb-4">已配置的服务商</h2>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">已配置的服务商</h2>
         {providers.length === 0 ? (
           <div className="text-center py-10">
-            <div className="text-3xl mb-2 opacity-30"> </div>
-            <p className="text-slate-600 text-sm">尚未配置任何服务商</p>
-            <p className="text-slate-700 text-xs mt-1">请在上方添加</p>
+            <svg className="w-12 h-12 text-gray-200 mx-auto mb-3" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
+            </svg>
+            <p className="text-gray-400 text-sm">尚未配置任何服务商</p>
+            <p className="text-gray-300 text-xs mt-1">请在上方添加</p>
           </div>
         ) : (
           <div className="space-y-2">
             {providers.map(p => (
-              <div key={p.id} className="flex items-center justify-between bg-slate-900/50 rounded-xl p-4 border border-slate-700/30 hover:border-slate-600/30 transition-all">
+              <div key={p.id} className="flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-white text-sm truncate">{p.name}</span>
+                    <span className="font-medium text-gray-800 text-sm truncate">{p.name}</span>
                     {p.is_default && (
-                      <span className="px-2 py-0.5 text-[10px] bg-blue-600/80 rounded-md text-white shrink-0">默认</span>
+                      <span className="px-2 py-0.5 text-[10px] bg-indigo-50 border border-indigo-100 rounded-md text-indigo-600 font-medium shrink-0">默认</span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-600 mt-1 truncate">{p.api_base}</div>
-                  <div className="text-[11px] text-slate-600 mt-0.5 truncate">
+                  <div className="text-[11px] text-gray-400 mt-1 truncate">{p.api_base}</div>
+                  <div className="text-[11px] text-gray-400 mt-0.5 truncate">
                     模型: {p.models.map(m => m.id).join(', ') || '未配置'}
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0 ml-3">
-                  <button onClick={() => handleEdit(p)} className="px-3 py-1.5 text-xs bg-slate-700/50 hover:bg-slate-600/50 rounded-lg text-slate-400 transition-all">
+                  <button onClick={() => handleEdit(p)} className="px-3 py-1.5 text-xs bg-white border border-gray-200 hover:bg-gray-50 rounded-lg text-gray-500 transition-all shadow-sm">
                     编辑
                   </button>
-                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 text-xs bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-400 transition-all">
+                  <button onClick={() => handleDelete(p.id)} className="px-3 py-1.5 text-xs bg-red-50 hover:bg-red-100 border border-red-100 rounded-lg text-red-500 transition-all">
                     删除
                   </button>
                 </div>

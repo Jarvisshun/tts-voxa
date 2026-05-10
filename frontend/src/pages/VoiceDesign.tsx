@@ -46,17 +46,17 @@ export default function VoiceDesign() {
   }, [audioSrc])
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Description */}
-      <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-6 backdrop-blur-sm">
-        <h2 className="text-sm font-medium text-slate-300 mb-1">声音设计</h2>
-        <p className="text-[11px] text-slate-600 mb-4">用自然语言描述你想要的声音特征，AI 会为你生成全新的虚拟声音</p>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">声音设计</h2>
+        <p className="text-[11px] text-gray-400 mb-4">用自然语言描述你想要的声音特征，AI 会为你生成全新的虚拟声音</p>
 
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
           rows={3}
-          className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl p-4 text-sm text-slate-200 focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 focus:outline-none resize-none leading-relaxed"
+          className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-4 text-sm text-gray-800 placeholder-gray-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 focus:outline-none resize-none leading-relaxed"
           placeholder="描述你想要的声音特征..."
         />
 
@@ -65,7 +65,7 @@ export default function VoiceDesign() {
             <button
               key={i}
               onClick={() => setDescription(ex)}
-              className="text-[11px] bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-slate-300 px-2.5 py-1.5 rounded-lg transition-all truncate max-w-[200px]"
+              className="text-[11px] bg-violet-50 hover:bg-violet-100 text-violet-600 hover:text-violet-700 px-2.5 py-1.5 rounded-lg transition-all truncate max-w-[200px]"
               title={ex}
             >
               {ex}
@@ -75,32 +75,32 @@ export default function VoiceDesign() {
       </div>
 
       {/* Text + Format */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="md:col-span-2 bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
-          <label className="block text-sm font-medium text-slate-300 mb-3">合成文本</label>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">合成文本</label>
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
             rows={4}
-            className="w-full bg-slate-900/80 border border-slate-700/50 rounded-xl p-3 text-sm text-slate-200 focus:border-purple-500/50 focus:outline-none resize-none leading-relaxed"
+            className="w-full bg-gray-50/80 border border-gray-200 rounded-xl p-3 text-sm text-gray-800 placeholder-gray-400 focus:border-violet-400 focus:outline-none resize-none leading-relaxed"
           />
         </div>
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
-          <label className="block text-sm font-medium text-slate-300 mb-3">输出格式</label>
-          <div className="flex gap-1">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">输出格式</label>
+          <div className="flex gap-1.5">
             {['wav', 'mp3'].map(f => (
               <button
                 key={f}
                 onClick={() => setFormat(f)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   format === f
-                    ? 'bg-purple-600/80 text-white shadow-sm'
-                    : 'bg-slate-900/50 text-slate-500 hover:text-slate-300'
+                    ? 'bg-violet-500 text-white shadow-sm shadow-violet-200'
+                    : 'bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200/70'
                 }`}
               >
                 {f.toUpperCase()}
               </button>
-              ))}
+            ))}
           </div>
         </div>
       </div>
@@ -109,20 +109,25 @@ export default function VoiceDesign() {
       <button
         onClick={handleGenerate}
         disabled={loading || !description.trim() || !text.trim()}
-        className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-violet-500 hover:from-purple-500 hover:to-violet-400 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-600 rounded-2xl font-medium text-sm transition-all shadow-lg shadow-purple-500/10 hover:shadow-purple-500/20 disabled:shadow-none active:scale-[0.99]"
+        className="w-full py-3.5 bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 disabled:from-gray-200 disabled:to-gray-200 disabled:text-gray-400 rounded-2xl font-medium text-sm text-white transition-all shadow-lg shadow-violet-200/50 hover:shadow-violet-300/50 disabled:shadow-none active:scale-[0.99]"
       >
         {loading ? '正在生成...' : '生成声音'}
       </button>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm">{error}</div>
+        <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-red-600 text-sm flex items-center gap-2">
+          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+          {error}
+        </div>
       )}
 
       {audioSrc && (
-        <div className="bg-slate-800/60 border border-slate-700/50 rounded-2xl p-5 backdrop-blur-sm">
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-slate-400">生成结果</span>
-            <a href={audioSrc} download={`design_output.${format}`} className="text-xs text-purple-400 hover:text-purple-300 transition-colors">
+            <span className="text-sm font-medium text-gray-700">生成结果</span>
+            <a href={audioSrc} download={`design_output.${format}`} className="text-xs text-violet-500 hover:text-violet-600 transition-colors font-medium">
               下载 .{format}
             </a>
           </div>
