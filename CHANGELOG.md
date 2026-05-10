@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.0.1 (2026-05-11)
+
+### New Features
+- **Auto-Update Check**: Settings page now shows current version and checks GitHub for new releases
+  - One-click "检查更新" button queries GitHub Releases API
+  - Shows release notes and download link when a new version is available
+  - Graceful degradation when GitHub API is unreachable
+
+### Backend Changes
+- Added `GET /api/version` endpoint returning current version
+- Added `GET /api/update/check` endpoint comparing with GitHub Releases (10-minute cache)
+- Extracted `__version__` constant for centralized version management
+
+### Frontend Changes
+- New "关于 TTS Voxa" section in Settings page with version display and update checker
+
 ## v2.0.0 (2026-05-10)
 
 ### New Features

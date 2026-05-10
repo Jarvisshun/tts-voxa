@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { getVersion, checkUpdate } from '../api/client'
+import type { UpdateInfo } from '../api/client'
 
 interface Provider {
   id: string
@@ -26,6 +28,28 @@ export default function Settings() {
   const [modelsText, setModelsText] = useState('')
   const [isDefault, setIsDefault] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Version & update state
+  const [currentVersion, setCurrentVersion] = useState('')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
+
+  useEffect(() => {
+    getVersion().then(d => setCurrentVersion(d.version)).catch(() => {})
+  }, [])
+
+  const handleCheckUpdate = async () => {
+    setCheckingUpdate(true)
+    setUpdateInfo(null)
+    try {
+      const info = await checkUpdate()
+      setUpdateInfo(info)
+    } catch (e: any) {
+      setUpdateInfo({ current: currentVersion, latest: currentVersion, has_update: false, download_url: null, release_notes: `检查失败: ${e.message}` })
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
 
   const fetchProviders = async () => {
     try {
@@ -224,6 +248,71 @@ export default function Settings() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* About & Updates */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">关于 TTS Voxa</h2>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-sm text-gray-500">当前版本</span>
+            <span className="ml-2 text-sm font-mono font-medium text-gray-800">v{currentVersion || '...'}</span>
+          </div>
+          <button
+            onClick={handleCheckUpdate}
+            disabled={checkingUpdate}
+            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200 flex items-center gap-1.5"
+          >
+            {checkingUpdate ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                检查中...
+              </>
+            ) : '检查更新'}
+          </button>
+        </div>
+
+        {updateInfo && (
+          <div className={`mt-4 p-4 rounded-xl border ${
+            updateInfo.has_update
+              ? 'bg-blue-50 border-blue-100'
+              : updateInfo.release_notes?.startsWith('检查失败')
+                ? 'bg-red-50 border-red-100'
+                : 'bg-emerald-50 border-emerald-100'
+          }`}>
+            {updateInfo.has_update ? (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-blue-600 font-medium text-sm">发现新版本 v{updateInfo.latest}</span>
+                </div>
+                {updateInfo.release_notes && (
+                  <div className="text-xs text-gray-500 mb-3 max-h-32 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                    {updateInfo.release_notes.slice(0, 500)}
+                  </div>
+                )}
+                <button
+                  onClick={() => window.open(updateInfo.download_url!, '_blank')}
+                  className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-xl text-sm font-medium text-white transition-all shadow-sm"
+                >
+                  下载更新
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-emerald-500 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+                <span className="text-emerald-600 text-sm font-medium">
+                  {updateInfo.release_notes?.startsWith('检查失败') ? updateInfo.release_notes : '已是最新版本'}
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

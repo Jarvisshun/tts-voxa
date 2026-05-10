@@ -8,6 +8,9 @@ import sys
 import webbrowser
 import threading
 
+import httpx
+import time
+
 from routers import tts, clone, design, batch, voices, history, config
 from models.database import init_db
 
@@ -30,7 +33,9 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-app = FastAPI(title="TTS Voxa", version="2.0.0")
+__version__ = "2.0.1"
+
+app = FastAPI(title="TTS Voxa", version=__version__)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,6 +84,71 @@ async def get_preset_voices():
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+def _parse_version(v: str) -> tuple[int, ...]:
+    """Parse 'v1.2.3' or '1.2.3' into (1, 2, 3)."""
+    v = v.lstrip("v")
+    parts = []
+    for p in v.split("."):
+        try:
+            parts.append(int(p))
+        except ValueError:
+            break
+    return tuple(parts) or (0,)
+
+
+GITHUB_REPO = "Jarvisshun/mimo-tts-studio"
+_update_cache = {"data": None, "ts": 0}
+
+
+@app.get("/api/version")
+async def get_version():
+    return {"version": __version__}
+
+
+@app.get("/api/update/check")
+async def check_update():
+    now = time.time()
+    if _update_cache["data"] and now - _update_cache["ts"] < 600:
+        return _update_cache["data"]
+
+    result = {
+        "current": __version__,
+        "latest": __version__,
+        "has_update": False,
+        "download_url": None,
+        "release_notes": None,
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0, trust_env=False) as client:
+            resp = await client.get(
+                f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+                headers={"Accept": "application/vnd.github+json"},
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                tag = data.get("tag_name", "")
+                latest_ver = tag.lstrip("v")
+                download_url = None
+                for asset in data.get("assets", []):
+                    if asset.get("name", "").endswith(".zip"):
+                        download_url = asset.get("browser_download_url")
+                        break
+                if not download_url:
+                    download_url = data.get("html_url", "")
+
+                result["latest"] = latest_ver
+                result["has_update"] = _parse_version(latest_ver) > _parse_version(__version__)
+                result["download_url"] = download_url
+                result["release_notes"] = data.get("body", "")
+    except Exception:
+        pass
+
+    _update_cache["data"] = result
+    _update_cache["ts"] = now
+    return result
 
 
 # Mount static files and SPA routes only if static dir exists

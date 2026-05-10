@@ -151,3 +151,19 @@ export async function getBatchList() {
 export function getBatchItemAudioUrl(jobId: string, itemIndex: number): string {
   return `${API_BASE}/batch/${jobId}/items/${itemIndex}/audio`
 }
+
+export interface UpdateInfo {
+  current: string
+  latest: string
+  has_update: boolean
+  download_url: string | null
+  release_notes: string | null
+}
+
+export async function getVersion() {
+  return request<{ version: string }>('/version')
+}
+
+export async function checkUpdate() {
+  return request<UpdateInfo>('/update/check')
+}
