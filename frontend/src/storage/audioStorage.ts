@@ -41,8 +41,23 @@ export async function deleteAudioFile(filename: string): Promise<void> {
 }
 
 export async function downloadApk(url: string, onProgress?: (percent: number) => void): Promise<void> {
-  const resp = await fetch(url)
-  if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
+  // Try direct download with redirect follow
+  let resp: Response
+  try {
+    resp = await fetch(url, { redirect: 'follow', mode: 'cors' })
+  } catch {
+    // Fallback: try without cors
+    try {
+      resp = await fetch(url, { redirect: 'follow' })
+    } catch {
+      // Last resort: open in browser for manual download
+      window.open(url, '_system')
+      throw new Error('无法直接下载，已在浏览器中打开下载页面')
+    }
+  }
+
+  if (!resp.ok) throw new Error(`下载失败: ${resp.status}`)
+
   const total = parseInt(resp.headers.get('content-length') || '0')
   const reader = resp.body!.getReader()
   const chunks: Uint8Array[] = []
@@ -71,7 +86,5 @@ export async function downloadApk(url: string, onProgress?: (percent: number) =>
   })
 
   const uri = await Filesystem.getUri({ path: filename, directory: Directory.Cache })
-
-  // Open APK with system installer
   window.open(uri.uri, '_system')
 }
