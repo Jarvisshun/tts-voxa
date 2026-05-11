@@ -119,7 +119,11 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
         ctx.fillStyle = '#6366f1'
         ctx.beginPath()
-        ctx.roundRect(x, y, barWidth, h, 2)
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, barWidth, h, 2)
+        } else {
+          ctx.rect(x, y, barWidth, h)
+        }
         ctx.fill()
       }
     }
@@ -144,7 +148,11 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         return
       }
 
-      await Microphone.startRecording()
+      // Wrap in timeout — MediaRecorder.start() can block on some Xiaomi devices
+      await Promise.race([
+        Microphone.startRecording(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('录音启动超时，请重试')), 10000)),
+      ])
       setState('recording')
       setDuration(0)
 
@@ -310,8 +318,16 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   const handleUseRecording = async () => {
     if (!blobRef.current) return
     try {
-      const wavFile = await blobToWavFile(blobRef.current)
-      onRecorded(wavFile)
+      if (isNative()) {
+        // Native plugin returns m4a/AAC — send directly, skip WAV conversion
+        // (Android WebView's AudioContext may not decode AAC reliably)
+        const ext = blobRef.current.type.includes('aac') || blobRef.current.type.includes('mp4') ? 'm4a' : 'wav'
+        const file = new File([blobRef.current], `recording.${ext}`, { type: blobRef.current.type })
+        onRecorded(file)
+      } else {
+        const wavFile = await blobToWavFile(blobRef.current)
+        onRecorded(wavFile)
+      }
     } catch {
       setError('音频转换失败')
     }
