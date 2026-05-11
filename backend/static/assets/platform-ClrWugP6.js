@@ -1,0 +1,1 @@
+function e(){return!!window.Capacitor?.isNativePlatform}var t=`2.1.4`;export{e as n,t};
