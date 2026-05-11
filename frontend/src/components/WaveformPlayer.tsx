@@ -64,8 +64,6 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     return () => {
       ws.destroy()
       wsRef.current = null
-      // Revoke blob URLs to prevent memory leaks
-      if (audioSrc.startsWith('blob:')) URL.revokeObjectURL(audioSrc)
     }
   }, [audioSrc, height])
 
@@ -73,13 +71,26 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     wsRef.current?.playPause()
   }, [])
 
-  const handleDownload = useCallback(() => {
-    const a = document.createElement('a')
-    a.href = audioSrc
-    a.download = downloadFilename
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+  const handleDownload = useCallback(async () => {
+    try {
+      const resp = await fetch(audioSrc)
+      const blob = await resp.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = downloadFilename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      const a = document.createElement('a')
+      a.href = audioSrc
+      a.download = downloadFilename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
   }, [audioSrc, downloadFilename])
 
   return (

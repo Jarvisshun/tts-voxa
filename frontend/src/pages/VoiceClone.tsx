@@ -1,5 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { cloneSynthesize, cloneSave } from '../api/client'
+import { useTasks } from '../contexts/TaskContext'
 import WaveformPlayer from '../components/WaveformPlayer'
 import AudioRecorder from '../components/AudioRecorder'
 
@@ -15,6 +16,12 @@ export default function VoiceClone() {
   const [saved, setSaved] = useState(false)
   const [inputMode, setInputMode] = useState<'upload' | 'record'>('upload')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const previewUrl = useMemo(() => audioFile ? URL.createObjectURL(audioFile) : '', [audioFile])
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
+  }, [previewUrl])
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -23,22 +30,36 @@ export default function VoiceClone() {
     }
   }
 
+  const { addTask, updateTask } = useTasks()
+
   const handleSynthesize = async () => {
     if (!audioFile || !text.trim()) return
     setLoading(true)
     setError('')
     setAudioSrc('')
 
+    const taskId = `clone_${crypto.randomUUID().slice(0, 12)}`
+    addTask({
+      id: taskId,
+      type: 'clone',
+      status: 'running',
+      textPreview: text.trim().slice(0, 30) + (text.trim().length > 30 ? '...' : ''),
+      createdAt: new Date().toISOString(),
+    })
+
     try {
       const resp = await cloneSynthesize(audioFile, text.trim(), format, emotion || undefined)
       if (resp.success && resp.data) {
         const audioUrl = `data:audio/${resp.data.format};base64,${resp.data.audio}`
         setAudioSrc(audioUrl)
+        updateTask(taskId, { status: 'completed' })
       } else {
         setError('合成失败')
+        updateTask(taskId, { status: 'failed' })
       }
     } catch (e: any) {
       setError(e.message || '请求失败')
+      updateTask(taskId, { status: 'failed' })
     } finally {
       setLoading(false)
     }
@@ -120,7 +141,7 @@ export default function VoiceClone() {
             {audioFile && (
               <div className="mt-4">
                 <div className="text-xs text-gray-500 mb-2 font-medium">参考音频预览</div>
-                <WaveformPlayer audioSrc={URL.createObjectURL(audioFile)} height={40} />
+                <WaveformPlayer audioSrc={previewUrl} height={40} />
               </div>
             )}
           </>

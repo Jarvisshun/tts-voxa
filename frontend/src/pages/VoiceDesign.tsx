@@ -1,6 +1,15 @@
 import { useState } from 'react'
 import { designVoice } from '../api/client'
+import { useTasks } from '../contexts/TaskContext'
 import WaveformPlayer from '../components/WaveformPlayer'
+
+const DESCRIPTION_EXAMPLES = [
+  '温柔的女声，语速适中，带点甜美的感觉',
+  '低沉的男声，像新闻播音员一样专业',
+  '活泼的少女声音，语调上扬，充满活力',
+  '沉稳的中年男声，带点沙哑，有磁性',
+  '清亮的童声，天真烂漫',
+]
 
 export default function VoiceDesign() {
   const [description, setDescription] = useState('温柔的女声，语速适中，带点甜美的感觉')
@@ -9,13 +18,8 @@ export default function VoiceDesign() {
   const [loading, setLoading] = useState(false)
   const [audioSrc, setAudioSrc] = useState('')
   const [error, setError] = useState('')
-  const examples = [
-    '温柔的女声，语速适中，带点甜美的感觉',
-    '低沉的男声，像新闻播音员一样专业',
-    '活泼的少女声音，语调上扬，充满活力',
-    '沉稳的中年男声，带点沙哑，有磁性',
-    '清亮的童声，天真烂漫',
-  ]
+
+  const { addTask, updateTask } = useTasks()
 
   const handleGenerate = async () => {
     if (!description.trim() || !text.trim()) return
@@ -23,16 +27,28 @@ export default function VoiceDesign() {
     setError('')
     setAudioSrc('')
 
+    const taskId = `design_${crypto.randomUUID().slice(0, 12)}`
+    addTask({
+      id: taskId,
+      type: 'design',
+      status: 'running',
+      textPreview: description.trim().slice(0, 30) + (description.trim().length > 30 ? '...' : ''),
+      createdAt: new Date().toISOString(),
+    })
+
     try {
       const resp = await designVoice({ description: description.trim(), text: text.trim(), format })
       if (resp.success && resp.data) {
         const audioUrl = `data:audio/${resp.data.format};base64,${resp.data.audio}`
         setAudioSrc(audioUrl)
+        updateTask(taskId, { status: 'completed' })
       } else {
         setError('生成失败')
+        updateTask(taskId, { status: 'failed' })
       }
     } catch (e: any) {
       setError(e.message || '请求失败')
+      updateTask(taskId, { status: 'failed' })
     } finally {
       setLoading(false)
     }
@@ -54,7 +70,7 @@ export default function VoiceDesign() {
         />
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {examples.map((ex, i) => (
+          {DESCRIPTION_EXAMPLES.map((ex, i) => (
             <button
               key={i}
               onClick={() => setDescription(ex)}

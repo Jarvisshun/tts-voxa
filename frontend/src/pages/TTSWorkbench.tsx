@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { synthesizeTTS, getModels, getPresets, type TTSRequest } from '../api/client'
 import { pcmToWavBase64 } from '../utils/audio'
+import { useTasks } from '../contexts/TaskContext'
 import WaveformPlayer from '../components/WaveformPlayer'
 
 interface ModelItem {
@@ -45,11 +46,23 @@ export default function TTSWorkbench() {
     }).catch(() => {})
   }, [])
 
+  const { addTask, updateTask } = useTasks()
+
   const handleSynthesize = async () => {
     if (!text.trim()) return
     setLoading(true)
     setError('')
     setAudioSrc('')
+
+    const taskId = `tts_${crypto.randomUUID().slice(0, 12)}`
+    const preview = text.trim().slice(0, 30) + (text.trim().length > 30 ? '...' : '')
+    addTask({
+      id: taskId,
+      type: 'tts',
+      status: 'running',
+      textPreview: preview,
+      createdAt: new Date().toISOString(),
+    })
 
     try {
       const req: TTSRequest = {
@@ -64,18 +77,20 @@ export default function TTSWorkbench() {
       if (resp.success && resp.data) {
         let audioBase64 = resp.data.audio
         let audioFormat = resp.data.format
-        // PCM needs WAV header to be playable in browser
         if (audioFormat === 'pcm') {
           audioBase64 = pcmToWavBase64(audioBase64)
           audioFormat = 'wav'
         }
         const audioUrl = `data:audio/${audioFormat};base64,${audioBase64}`
         setAudioSrc(audioUrl)
+        updateTask(taskId, { status: 'completed' })
       } else {
         setError(resp.error?.message || '合成失败')
+        updateTask(taskId, { status: 'failed' })
       }
     } catch (e: any) {
       setError(e.message || '请求失败')
+      updateTask(taskId, { status: 'failed' })
     } finally {
       setLoading(false)
     }
