@@ -116,11 +116,14 @@ export async function voiceClone(
   messages.push({ role: 'user', content: emotion ? `用${emotion}的语气说` : 'clone' })
   messages.push({ role: 'assistant', content: text })
 
+  // MiMo API only supports wav/mp3 — always request wav, convert to pcm later if needed
+  const apiFormat = (outputFormat === 'pcm' || outputFormat === 'pcm16') ? 'wav' : outputFormat
+
   const payload = {
     model: 'mimo-v2.5-tts-voiceclone',
     messages,
     modalities: ['text', 'audio'],
-    audio: { voice: voiceDataUrl, format: outputFormat },
+    audio: { voice: voiceDataUrl, format: apiFormat },
     stream: false,
   }
 
@@ -140,6 +143,8 @@ export async function voiceDesign(
   req: VoiceDesignRequest
 ): Promise<{ audio: string; format: string }> {
   const { apiKey, apiBase } = await getConfig()
+  // MiMo API only supports wav/mp3 — always request wav, convert to pcm later if needed
+  const apiFormat = (req.format === 'pcm' || req.format === 'pcm16') ? 'wav' : (req.format || 'wav')
   const payload = {
     model: 'mimo-v2.5-tts-voicedesign',
     messages: [
@@ -147,7 +152,7 @@ export async function voiceDesign(
       { role: 'assistant', content: req.text },
     ],
     modalities: ['text', 'audio'],
-    audio: { format: req.format || 'wav' },
+    audio: { format: apiFormat },
     stream: false,
   }
 

@@ -146,7 +146,7 @@ export default function History() {
                             </div>
                           )
                         ) : (
-                          <WaveformPlayer audioSrc={`/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                          <WaveformPlayer audioSrc={`/audio/${item.audio_path.replace(/^.*[/\\]/, '')}`} height={32} />
                         )}
                       </div>
                     )}
@@ -175,7 +175,7 @@ export default function History() {
                       </div>
                     )
                   ) : (
-                    <WaveformPlayer audioSrc={`/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                    <WaveformPlayer audioSrc={`/audio/${item.audio_path.replace(/^.*[/\\]/, '')}`} height={32} />
                   )}
                 </div>
               )}

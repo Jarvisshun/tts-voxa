@@ -119,11 +119,14 @@ class MiMoClient:
             messages.append({"role": "user", "content": "clone"})
         messages.append({"role": "assistant", "content": text})
 
+        # MiMo API only supports wav/mp3 — always request wav, convert to pcm later if needed
+        api_format = "wav" if output_format in ("pcm", "pcm16") else output_format
+
         payload = {
             "model": "mimo-v2.5-tts-voiceclone",
             "messages": messages,
             "modalities": ["text", "audio"],
-            "audio": {"voice": voice_dataurl, "format": output_format},
+            "audio": {"voice": voice_dataurl, "format": api_format},
             "stream": False,
         }
 
@@ -146,6 +149,9 @@ class MiMoClient:
         text: str,
         format: str = "wav",
     ) -> dict:
+        # MiMo API only supports wav/mp3 — always request wav, convert to pcm later if needed
+        api_format = "wav" if format in ("pcm", "pcm16") else format
+
         payload = {
             "model": "mimo-v2.5-tts-voicedesign",
             "messages": [
@@ -153,7 +159,7 @@ class MiMoClient:
                 {"role": "assistant", "content": text},
             ],
             "modalities": ["text", "audio"],
-            "audio": {"format": format},
+            "audio": {"format": api_format},
             "stream": False,
         }
 
