@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
-import { blobToWavFile } from '../utils/audio'
+import { blobToWavFile, base64ToBytes } from '../utils/audio'
 import { isNative } from '../platform'
 
 interface AudioRecorderProps {
@@ -185,9 +185,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       }
 
       if (result.base64) {
-        const binary = atob(result.base64)
-        const bytes = new Uint8Array(binary.length)
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const bytes = base64ToBytes(result.base64)
         const blob = new Blob([bytes], { type: 'audio/aac' })
         blobRef.current = blob
       }
@@ -254,6 +252,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
           })
           const url = URL.createObjectURL(blob)
           ws.load(url)
+          ws.on('ready', () => URL.revokeObjectURL(url))
           wsRef.current = ws
         }
 

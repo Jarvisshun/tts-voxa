@@ -1,12 +1,13 @@
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { isNative } from '../platform'
+import { base64ToBytes } from '../utils/audio'
 
 const AUDIO_DIR = 'audio_store'
 
 async function ensureDir() {
   try {
     await Filesystem.mkdir({ path: AUDIO_DIR, directory: Directory.Data, recursive: true })
-  } catch {}
+  } catch (e) { console.warn('ensureDir failed:', e) }
 }
 
 export async function saveAudio(audioBase64: string, format: string, prefix: string): Promise<string> {
@@ -33,9 +34,7 @@ export async function getAudioDataUrl(filename: string, format: string): Promise
   const b64 = await readAudioBase64(filename)
   // Convert base64 to blob URL — more reliable than data URL for WaveSurfer on Android WebView
   try {
-    const binary = atob(b64)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const bytes = base64ToBytes(b64)
     const mime = format === 'mp3' ? 'audio/mpeg' : `audio/${format}`
     const blob = new Blob([bytes], { type: mime })
     return URL.createObjectURL(blob)
@@ -68,9 +67,10 @@ export async function downloadApk(url: string, onProgress?: (percent: number) =>
   }
 
   if (!resp.ok) throw new Error(`下载失败: ${resp.status}`)
+  if (!resp.body) throw new Error('下载响应为空')
 
   const total = parseInt(resp.headers.get('content-length') || '0')
-  const reader = resp.body!.getReader()
+  const reader = resp.body.getReader()
   const chunks: Uint8Array[] = []
   let received = 0
 

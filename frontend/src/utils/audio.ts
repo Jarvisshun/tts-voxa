@@ -65,16 +65,14 @@ function writeString(view: DataView, offset: number, str: string) {
   }
 }
 
-function base64ToBytes(b64: string): Uint8Array {
-  // Use atob for small data, chunked approach for large data to avoid corruption
+export function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   const binary = atob(b64)
-  const bytes = new Uint8Array(binary.length)
+  const bytes = new Uint8Array(new ArrayBuffer(binary.length))
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
   return bytes
 }
 
-function bytesToBase64(bytes: Uint8Array): string {
-  // Chunked btoa to avoid "Maximum call stack size exceeded" on large arrays
+export function bytesToBase64(bytes: Uint8Array): string {
   const chunkSize = 8192
   let binary = ''
   for (let i = 0; i < bytes.length; i += chunkSize) {
@@ -82,6 +80,12 @@ function bytesToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...chunk)
   }
   return btoa(binary)
+}
+
+export function formatSeconds(s: number): string {
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 export function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): string {

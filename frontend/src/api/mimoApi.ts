@@ -45,8 +45,10 @@ export async function tts(req: TTSRequest): Promise<{ audio: string; format: str
   })
   if (!resp.ok) throw new Error(`TTS API error: ${resp.status}`)
   const data = await resp.json()
+  const audioData = data.choices?.[0]?.message?.audio?.data
+  if (!audioData) throw new Error('Invalid TTS response: missing audio data')
   return {
-    audio: data.choices[0].message.audio.data,
+    audio: audioData,
     format: req.format || 'wav',
   }
 }
@@ -75,8 +77,9 @@ export async function* ttsStream(
     body: JSON.stringify(payload),
   })
   if (!resp.ok) throw new Error(`TTS stream API error: ${resp.status}`)
+  if (!resp.body) throw new Error('TTS stream response body is empty')
 
-  const reader = resp.body!.getReader()
+  const reader = resp.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
 
@@ -128,7 +131,9 @@ export async function voiceClone(
   })
   if (!resp.ok) throw new Error(`Voice clone API error: ${resp.status}`)
   const data = await resp.json()
-  return { audio: data.choices[0].message.audio.data, format: outputFormat }
+  const audioData = data.choices?.[0]?.message?.audio?.data
+  if (!audioData) throw new Error('Invalid voice clone response: missing audio data')
+  return { audio: audioData, format: outputFormat }
 }
 
 export async function voiceDesign(
@@ -153,7 +158,9 @@ export async function voiceDesign(
   })
   if (!resp.ok) throw new Error(`Voice design API error: ${resp.status}`)
   const data = await resp.json()
-  return { audio: data.choices[0].message.audio.data, format: req.format || 'wav' }
+  const audioData = data.choices?.[0]?.message?.audio?.data
+  if (!audioData) throw new Error('Invalid voice design response: missing audio data')
+  return { audio: audioData, format: req.format || 'wav' }
 }
 
 export async function synthesizeAndSave(req: TTSRequest): Promise<TTSResponse> {

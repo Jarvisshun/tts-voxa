@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
+import { formatSeconds } from '../utils/audio'
 
 interface WaveformPlayerProps {
   audioSrc: string
@@ -7,6 +8,16 @@ interface WaveformPlayerProps {
   showDownload?: boolean
   downloadFilename?: string
 }
+
+const WS_OPTIONS = {
+  waveColor: '#c7d2fe',
+  progressColor: '#6366f1',
+  cursorColor: '#4f46e5',
+  barWidth: 2,
+  barGap: 1,
+  barRadius: 2,
+  normalize: true,
+} as const
 
 export default function WaveformPlayer({ audioSrc, height = 48, showDownload = false, downloadFilename = 'audio.wav' }: WaveformPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -16,36 +27,24 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
   const [duration, setDuration] = useState('0:00')
   const [ready, setReady] = useState(false)
 
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60)
-    const sec = Math.floor(s % 60)
-    return `${m}:${sec.toString().padStart(2, '0')}`
-  }
-
   useEffect(() => {
     if (!containerRef.current) return
 
     const ws = WaveSurfer.create({
       container: containerRef.current,
       height,
-      waveColor: '#c7d2fe',
-      progressColor: '#6366f1',
-      cursorColor: '#4f46e5',
-      barWidth: 2,
-      barGap: 1,
-      barRadius: 2,
-      normalize: true,
+      ...WS_OPTIONS,
     })
 
     ws.load(audioSrc)
 
     ws.on('ready', () => {
       setReady(true)
-      setDuration(formatTime(ws.getDuration()))
+      setDuration(formatSeconds(ws.getDuration()))
     })
 
     ws.on('audioprocess', () => {
-      setCurrentTime(formatTime(ws.getCurrentTime()))
+      setCurrentTime(formatSeconds(ws.getCurrentTime()))
     })
 
     ws.on('finish', () => {
@@ -65,6 +64,8 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     return () => {
       ws.destroy()
       wsRef.current = null
+      // Revoke blob URLs to prevent memory leaks
+      if (audioSrc.startsWith('blob:')) URL.revokeObjectURL(audioSrc)
     }
   }, [audioSrc, height])
 
