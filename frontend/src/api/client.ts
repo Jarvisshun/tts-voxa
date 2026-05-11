@@ -320,11 +320,11 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-export async function getAudioDataUrlForHistory(generationId: string, format: string): Promise<string> {
+export async function getAudioDataUrlForHistory(audioPath: string, format: string): Promise<string> {
   if (isNative()) {
-    return (await getAudioStorage()).getAudioDataUrl(`${generationId}.${format}`, format)
+    return (await getAudioStorage()).getAudioDataUrl(audioPath, format)
   }
-  return `${API_BASE}/history/${generationId}/audio`
+  return `${API_BASE}/history/${audioPath}/audio`
 }
 
 export async function deleteHistory(id: string) {

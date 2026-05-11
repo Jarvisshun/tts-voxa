@@ -24,7 +24,7 @@ export default function History() {
           for (const item of resp.data.items) {
             if (item.audio_path) {
               try {
-                urls[item.id] = await getAudioDataUrlForHistory(item.id, item.format || 'wav')
+                urls[item.id] = await getAudioDataUrlForHistory(item.audio_path, item.format || 'wav')
               } catch (e) {
                 console.warn('Failed to load audio for history item:', item.id, e)
               }
