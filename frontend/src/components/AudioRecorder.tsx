@@ -3,36 +3,21 @@ import WaveSurfer from 'wavesurfer.js'
 import { blobToWavFile } from '../utils/audio'
 import { isNative } from '../platform'
 
-// Polyfill navigator.mediaDevices for Android WebView (non-secure context)
-if (isNative() && !navigator.mediaDevices) {
-  (navigator as any).mediaDevices = {}
-}
-if (isNative() && !navigator.mediaDevices.getUserMedia) {
-  navigator.mediaDevices.getUserMedia = (constraints: MediaStreamConstraints) =>
-    new Promise<MediaStream>((resolve, reject) => {
-      const nav = navigator as any
-      const fn = nav.getUserMedia || nav.webkitGetUserMedia || nav.mozGetUserMedia
-      if (!fn) return reject(new Error('getUserMedia not supported'))
-      fn.call(nav, constraints, resolve, reject)
-    })
-}
-if (isNative() && !navigator.mediaDevices.enumerateDevices) {
-  navigator.mediaDevices.enumerateDevices = () =>
-    new Promise<MediaDeviceInfo[]>((resolve) => {
-      const nav = navigator as any
-      if (nav.mediaDevices?.enumerateDevices) {
-        nav.mediaDevices.enumerateDevices().then(resolve)
-      } else {
-        resolve([])
-      }
-    })
-}
-
 interface AudioRecorderProps {
   onRecorded: (file: File) => void
 }
 
 type RecorderState = 'idle' | 'starting' | 'recording' | 'recorded'
+
+// Lazy-load the microphone plugin (only on native)
+let MicrophonePlugin: any = null
+async function getMicrophone() {
+  if (!MicrophonePlugin) {
+    const mod = await import('@mozartec/capacitor-microphone')
+    MicrophonePlugin = mod.Microphone
+  }
+  return MicrophonePlugin
+}
 
 export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -52,14 +37,14 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   const wsRef = useRef<WaveSurfer | null>(null)
   const blobRef = useRef<Blob | null>(null)
 
-  // Enumerate audio input devices
+  // Enumerate audio input devices (web only)
   useEffect(() => {
+    if (isNative()) return
+
     const enumDevices = async () => {
       try {
-        // Request permission first to get labeled devices
         const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         tempStream.getTracks().forEach(t => t.stop())
-
         const allDevices = await navigator.mediaDevices.enumerateDevices()
         const audioInputs = allDevices.filter(d => d.kind === 'audioinput')
         setDevices(audioInputs)
@@ -67,13 +52,13 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
           setSelectedDevice(audioInputs[0].deviceId)
         }
       } catch {
-        setError(isNative() ? '无法访问麦克风，请在系统设置中允许录音权限' : '无法访问麦克风，请检查浏览器权限')
+        setError('无法访问麦克风，请检查浏览器权限')
       }
     }
     enumDevices()
   }, [])
 
-  // Draw real-time waveform on canvas
+  // Draw real-time waveform on canvas (web only)
   const drawWaveform = useCallback(() => {
     if (!canvasRef.current || !analyserRef.current) return
     const canvas = canvasRef.current
@@ -110,8 +95,126 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     draw()
   }, [])
 
-  const startRecording = async () => {
-    if (state !== 'idle') return
+  // Draw animated bars for native (no real-time audio data available)
+  const drawNativeWaveform = useCallback(() => {
+    if (!canvasRef.current) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const bars = 40
+    const barWidth = canvas.width / bars - 2
+    let phase = 0
+
+    const draw = () => {
+      animFrameRef.current = requestAnimationFrame(draw)
+      ctx.fillStyle = '#f8f9fc'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      phase += 0.15
+      for (let i = 0; i < bars; i++) {
+        const h = (Math.sin(phase + i * 0.3) * 0.3 + 0.5) * canvas.height * 0.6
+        const x = i * (barWidth + 2)
+        const y = (canvas.height - h) / 2
+
+        ctx.fillStyle = '#6366f1'
+        ctx.beginPath()
+        ctx.roundRect(x, y, barWidth, h, 2)
+        ctx.fill()
+      }
+    }
+    draw()
+  }, [])
+
+  // --- Native recording using @mozartec/capacitor-microphone ---
+  const startRecordingNative = async () => {
+    setState('starting')
+    setError('')
+    try {
+      const Microphone = await getMicrophone()
+
+      // Check and request permissions
+      let perm = await Microphone.checkPermissions()
+      if (perm.microphone !== 'granted') {
+        perm = await Microphone.requestPermissions()
+      }
+      if (perm.microphone !== 'granted') {
+        setError('麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
+        setState('idle')
+        return
+      }
+
+      await Microphone.startRecording()
+      setState('recording')
+      setDuration(0)
+
+      timerRef.current = window.setInterval(() => {
+        setDuration(d => d + 1)
+      }, 1000)
+
+      drawNativeWaveform()
+    } catch (e: any) {
+      setState('idle')
+      setError(e.message || '录音启动失败')
+    }
+  }
+
+  const stopRecordingNative = async () => {
+    try {
+      const Microphone = await getMicrophone()
+      const result = await Microphone.stopRecording()
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+      }
+
+      // result: { base64String, dataUrl, webPath, duration, format, mimeType }
+      if (result.base64String) {
+        // Decode base64 to blob, then convert to WAV file
+        const binary = atob(result.base64String)
+        const bytes = new Uint8Array(binary.length)
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+        const mimeType = result.mimeType || 'audio/aac'
+        const blob = new Blob([bytes], { type: mimeType })
+        blobRef.current = blob
+
+        // Create wavesurfer for playback
+        if (waveformRef.current && result.webPath) {
+          waveformRef.current.innerHTML = ''
+          const ws = WaveSurfer.create({
+            container: waveformRef.current,
+            height: 48,
+            waveColor: '#c7d2fe',
+            progressColor: '#6366f1',
+            cursorColor: '#4f46e5',
+            barWidth: 2,
+            barGap: 1,
+            barRadius: 2,
+            normalize: true,
+          })
+          ws.load(result.webPath)
+          wsRef.current = ws
+        }
+      }
+
+      // Update duration from plugin if available
+      if (result.duration && result.duration > 0) {
+        setDuration(Math.round(result.duration / 1000))
+      }
+
+      setState('recorded')
+    } catch (e: any) {
+      setState('idle')
+      setError(e.message || '录音停止失败')
+    }
+  }
+
+  // --- Web recording using getUserMedia + MediaRecorder ---
+  const startRecordingWeb = async () => {
     setState('starting')
     setError('')
     try {
@@ -121,7 +224,6 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
 
-      // Set up analyser for real-time visualization
       const audioContext = new AudioContext()
       const source = audioContext.createMediaStreamSource(stream)
       const analyser = audioContext.createAnalyser()
@@ -129,7 +231,6 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       source.connect(analyser)
       analyserRef.current = analyser
 
-      // Start MediaRecorder
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
         : 'audio/webm'
@@ -144,7 +245,6 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         const blob = new Blob(chunksRef.current, { type: mimeType })
         blobRef.current = blob
 
-        // Create wavesurfer for playback
         if (waveformRef.current) {
           waveformRef.current.innerHTML = ''
           const ws = WaveSurfer.create({
@@ -163,7 +263,6 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
           wsRef.current = ws
         }
 
-        // Stop all tracks
         stream.getTracks().forEach(t => t.stop())
         audioContext.close()
       }
@@ -173,17 +272,15 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       setState('recording')
       setDuration(0)
 
-      // Start timer
       timerRef.current = window.setInterval(() => {
         setDuration(d => d + 1)
       }, 1000)
 
-      // Start waveform drawing
       drawWaveform()
     } catch (e: any) {
       setState('idle')
       if (e.name === 'NotAllowedError') {
-        setError(isNative() ? '麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风' : '麦克风访问被拒绝，请在浏览器设置中允许访问')
+        setError('麦克风访问被拒绝，请在浏览器设置中允许访问')
       } else if (e.name === 'NotFoundError') {
         setError('未找到麦克风设备')
       } else {
@@ -192,7 +289,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     }
   }
 
-  const stopRecording = () => {
+  const stopRecordingWeb = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
     }
@@ -205,6 +302,10 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     }
     setState('recorded')
   }
+
+  // Unified start/stop
+  const startRecording = () => isNative() ? startRecordingNative() : startRecordingWeb()
+  const stopRecording = () => isNative() ? stopRecordingNative() : stopRecordingWeb()
 
   const handleUseRecording = async () => {
     if (!blobRef.current) return
@@ -244,8 +345,8 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
   return (
     <div className="space-y-4">
-      {/* Device Selector */}
-      {state === 'idle' && devices.length > 1 && (
+      {/* Device Selector (web only) */}
+      {!isNative() && state === 'idle' && devices.length > 1 && (
         <div>
           <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">录音设备</label>
           <select
