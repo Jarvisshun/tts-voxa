@@ -150,8 +150,13 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         return
       }
 
-      // Start recording
-      await mic.startMicRecording()
+      // Start recording with timeout to prevent hanging
+      const startPromise = mic.startMicRecording()
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('录音启动超时，请重试')), 10000)
+      )
+      await Promise.race([startPromise, timeoutPromise])
+
       setState('recording')
       setDuration(0)
 
@@ -189,6 +194,14 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
       setState('recorded')
     } catch (e: any) {
+      // Always clean up state even on error
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+      }
       setState('idle')
       setError(e.message || '录音停止失败')
     }

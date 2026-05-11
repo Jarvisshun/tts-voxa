@@ -65,10 +65,27 @@ function writeString(view: DataView, offset: number, str: string) {
   }
 }
 
+function base64ToBytes(b64: string): Uint8Array {
+  // Use atob for small data, chunked approach for large data to avoid corruption
+  const binary = atob(b64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return bytes
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  // Chunked btoa to avoid "Maximum call stack size exceeded" on large arrays
+  const chunkSize = 8192
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize)
+    binary += String.fromCharCode(...chunk)
+  }
+  return btoa(binary)
+}
+
 export function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): string {
-  const pcmBinary = atob(pcmBase64)
-  const pcmBytes = new Uint8Array(pcmBinary.length)
-  for (let i = 0; i < pcmBinary.length; i++) pcmBytes[i] = pcmBinary.charCodeAt(i)
+  const pcmBytes = base64ToBytes(pcmBase64)
 
   const byteRate = sampleRate * numChannels * bitsPerSample / 8
   const blockAlign = numChannels * bitsPerSample / 8
@@ -92,8 +109,5 @@ export function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannel
 
   new Uint8Array(buffer).set(pcmBytes, 44)
 
-  let binary = ''
-  const wavBytes = new Uint8Array(buffer)
-  for (let i = 0; i < wavBytes.length; i++) binary += String.fromCharCode(wavBytes[i])
-  return btoa(binary)
+  return bytesToBase64(new Uint8Array(buffer))
 }

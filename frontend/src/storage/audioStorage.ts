@@ -31,7 +31,18 @@ export async function readAudioBase64(filename: string): Promise<string> {
 
 export async function getAudioDataUrl(filename: string, format: string): Promise<string> {
   const b64 = await readAudioBase64(filename)
-  return `data:audio/${format};base64,${b64}`
+  // Convert base64 to blob URL — more reliable than data URL for WaveSurfer on Android WebView
+  try {
+    const binary = atob(b64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const mime = format === 'mp3' ? 'audio/mpeg' : `audio/${format}`
+    const blob = new Blob([bytes], { type: mime })
+    return URL.createObjectURL(blob)
+  } catch {
+    // Fallback to data URL if blob creation fails
+    return `data:audio/${format};base64,${b64}`
+  }
 }
 
 export async function deleteAudioFile(filename: string): Promise<void> {

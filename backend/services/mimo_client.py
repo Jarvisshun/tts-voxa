@@ -29,11 +29,14 @@ class MiMoClient:
             messages.append({"role": "user", "content": f"用{emotion}的语气说"})
         messages.append({"role": "assistant", "content": text})
 
+        # MiMo API only supports wav/mp3 — always request wav, convert to pcm later if needed
+        api_format = "wav" if format in ("pcm", "pcm16") else format
+
         payload = {
             "model": model,
             "messages": messages,
             "modalities": ["text", "audio"],
-            "audio": {"voice": voice, "format": format, "speed": speed},
+            "audio": {"voice": voice, "format": api_format, "speed": speed},
             "stream": False,
         }
 
@@ -64,11 +67,13 @@ class MiMoClient:
             messages.append({"role": "user", "content": f"用{emotion}的语气说"})
         messages.append({"role": "assistant", "content": text})
 
+        api_format = "wav" if format in ("pcm", "pcm16") else format
+
         payload = {
             "model": model,
             "messages": messages,
             "modalities": ["text", "audio"],
-            "audio": {"voice": voice, "format": format, "speed": speed},
+            "audio": {"voice": voice, "format": api_format, "speed": speed},
             "stream": True,
         }
 

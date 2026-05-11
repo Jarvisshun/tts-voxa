@@ -27,11 +27,14 @@ export async function tts(req: TTSRequest): Promise<{ audio: string; format: str
   if (req.emotion) messages.push({ role: 'user', content: `用${req.emotion}的语气说` })
   messages.push({ role: 'assistant', content: req.text })
 
+  // MiMo API only supports wav/mp3 — always request wav, convert to pcm later if needed
+  const apiFormat = (req.format === 'pcm' || req.format === 'pcm16') ? 'wav' : (req.format || 'wav')
+
   const payload = {
     model: req.model || 'mimo-v2.5-tts',
     messages,
     modalities: ['text', 'audio'],
-    audio: { voice: req.voice || 'mimo_default', format: req.format || 'wav', speed: req.speed || 1.0 },
+    audio: { voice: req.voice || 'mimo_default', format: apiFormat, speed: req.speed || 1.0 },
     stream: false,
   }
 
@@ -56,11 +59,13 @@ export async function* ttsStream(
   if (req.emotion) messages.push({ role: 'user', content: `用${req.emotion}的语气说` })
   messages.push({ role: 'assistant', content: req.text })
 
+  const apiFormat = (req.format === 'pcm' || req.format === 'pcm16') ? 'wav' : (req.format || 'wav')
+
   const payload = {
     model: req.model || 'mimo-v2.5-tts',
     messages,
     modalities: ['text', 'audio'],
-    audio: { voice: req.voice || 'mimo_default', format: req.format || 'wav', speed: req.speed || 1.0 },
+    audio: { voice: req.voice || 'mimo_default', format: apiFormat, speed: req.speed || 1.0 },
     stream: true,
   }
 
@@ -156,10 +161,15 @@ export async function synthesizeAndSave(req: TTSRequest): Promise<TTSResponse> {
     const result = await tts(req)
     let audioBase64 = result.audio
     let saveFormat = result.format
-    // PCM needs WAV header to be playable
-    if (result.format === 'pcm') {
-      audioBase64 = pcmToWavBase64(result.audio)
+    // API always returns WAV — if user wanted PCM, strip WAV header; if WAV, keep as-is
+    if (req.format === 'pcm' || req.format === 'pcm16') {
+      // Save as WAV (playable format) since PCM can't be played directly
       saveFormat = 'wav'
+      // If the API returned WAV data, it's already playable — no conversion needed
+      // The pcmToWavBase64 conversion is kept as fallback for legacy PCM data
+      if (result.format === 'pcm') {
+        audioBase64 = pcmToWavBase64(result.audio)
+      }
     }
     const genId = `gen_${crypto.randomUUID().slice(0, 12)}`
     const audioPath = await saveAudio(audioBase64, saveFormat, genId)

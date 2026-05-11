@@ -56,6 +56,10 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     ws.on('play', () => setPlaying(true))
     ws.on('pause', () => setPlaying(false))
 
+    ws.on('error', (err: any) => {
+      console.warn('WaveformPlayer error:', err)
+    })
+
     wsRef.current = ws
 
     return () => {
@@ -67,6 +71,15 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
   const togglePlay = useCallback(() => {
     wsRef.current?.playPause()
   }, [])
+
+  const handleDownload = useCallback(() => {
+    const a = document.createElement('a')
+    a.href = audioSrc
+    a.download = downloadFilename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }, [audioSrc, downloadFilename])
 
   return (
     <div className="flex items-center gap-3">
@@ -92,15 +105,14 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
         {currentTime} / {duration}
       </span>
       {showDownload && (
-        <a
-          href={audioSrc}
-          download={downloadFilename}
+        <button
+          onClick={handleDownload}
           className="shrink-0 text-gray-400 hover:text-indigo-500 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
-        </a>
+        </button>
       )}
     </div>
   )
