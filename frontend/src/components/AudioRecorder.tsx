@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
-import { blobToWavFile, formatSeconds } from '../utils/audio'
+import { blobToWavFile, base64ToBytes, formatSeconds } from '../utils/audio'
 import { isNative } from '../platform'
 
 interface AudioRecorderProps {
@@ -8,6 +8,16 @@ interface AudioRecorderProps {
 }
 
 type RecorderState = 'idle' | 'starting' | 'recording' | 'recorded'
+
+// Lazy-load the custom microphone plugin (for native Android)
+let TtsVoxaMic: any = null
+async function getTtsVoxaMic() {
+  if (!TtsVoxaMic) {
+    const mod = await import('../plugins/ttsVoxaMicrophone')
+    TtsVoxaMic = mod.default
+  }
+  return TtsVoxaMic
+}
 
 export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   const [state, setState] = useState<RecorderState>('idle')
@@ -86,14 +96,122 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     draw()
   }, [])
 
-  // Start recording using Web MediaRecorder API (works on both web and Android WebView)
-  const startRecording = async () => {
+  // Draw animated bars for native (no real-time audio data available)
+  const drawNativeWaveform = useCallback(() => {
+    if (!canvasRef.current) return
+    const canvas = canvasRef.current
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const bars = 40
+    const barWidth = canvas.width / bars - 2
+    let phase = 0
+
+    const draw = () => {
+      animFrameRef.current = requestAnimationFrame(draw)
+      ctx.fillStyle = '#f8f9fc'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+      phase += 0.15
+      for (let i = 0; i < bars; i++) {
+        const h = (Math.sin(phase + i * 0.3) * 0.3 + 0.5) * canvas.height * 0.6
+        const x = i * (barWidth + 2)
+        const y = (canvas.height - h) / 2
+
+        ctx.fillStyle = '#6366f1'
+        ctx.beginPath()
+        if (ctx.roundRect) {
+          ctx.roundRect(x, y, barWidth, h, 2)
+        } else {
+          ctx.rect(x, y, barWidth, h)
+        }
+        ctx.fill()
+      }
+    }
+    draw()
+  }, [])
+
+  // --- Native recording using custom TtsVoxaMicrophone plugin ---
+  const startRecordingNative = async () => {
     setState('starting')
     setError('')
     try {
-      // On native Android, getUserMedia in Capacitor WebView handles permissions via AndroidManifest
+      const mic = await getTtsVoxaMic()
+
+      // Check permission
+      let permResult = await mic.checkMicPermission()
+      if (!permResult.granted) {
+        permResult = await mic.requestMicPermission()
+      }
+      if (!permResult.granted) {
+        setError('麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
+        setState('idle')
+        return
+      }
+
+      // Start recording with timeout to prevent hanging
+      const startPromise = mic.startMicRecording()
+      let timeoutTimer: ReturnType<typeof setTimeout>
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutTimer = setTimeout(() => reject(new Error('录音启动超时，请重试')), 10000)
+      })
+      await Promise.race([startPromise, timeoutPromise]).finally(() => clearTimeout(timeoutTimer))
+
+      setState('recording')
+      setDuration(0)
+
+      timerRef.current = window.setInterval(() => {
+        setDuration(d => d + 1)
+      }, 1000)
+
+      drawNativeWaveform()
+    } catch (e: any) {
+      setState('idle')
+      setError(e.message || '录音启动失败')
+    }
+  }
+
+  const stopRecordingNative = async () => {
+    try {
+      const mic = await getTtsVoxaMic()
+      const result = await mic.stopMicRecording()
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+      }
+
+      if (result.base64) {
+        const bytes = base64ToBytes(result.base64)
+        const blob = new Blob([bytes], { type: 'audio/aac' })
+        blobRef.current = blob
+      }
+
+      setState('recorded')
+    } catch (e: any) {
+      // Always clean up state even on error
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+      }
+      setState('idle')
+      setError(e.message || '录音停止失败')
+    }
+  }
+
+  // --- Web recording using getUserMedia + MediaRecorder ---
+  const startRecordingWeb = async () => {
+    setState('starting')
+    setError('')
+    try {
       const constraints: MediaStreamConstraints = {
-        audio: (!isNative() && selectedDevice) ? { deviceId: { exact: selectedDevice } } : true,
+        audio: selectedDevice ? { deviceId: { exact: selectedDevice } } : true,
       }
       const stream = await navigator.mediaDevices.getUserMedia(constraints)
       streamRef.current = stream
@@ -108,12 +226,8 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
       const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
         ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : ''
-      const recorder = mimeType
-        ? new MediaRecorder(stream, { mimeType })
-        : new MediaRecorder(stream)
+        : 'audio/webm'
+      const recorder = new MediaRecorder(stream, { mimeType })
       chunksRef.current = []
 
       recorder.ondataavailable = (e) => {
@@ -121,11 +235,11 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       }
 
       recorder.onstop = async () => {
-        const actualMime = recorder.mimeType || mimeType || 'audio/webm'
-        const blob = new Blob(chunksRef.current, { type: actualMime })
+        const blob = new Blob(chunksRef.current, { type: mimeType })
         blobRef.current = blob
 
         if (waveformRef.current) {
+          if (wsRef.current) { wsRef.current.destroy(); wsRef.current = null }
           waveformRef.current.innerHTML = ''
           const ws = WaveSurfer.create({
             container: waveformRef.current,
@@ -161,7 +275,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     } catch (e: any) {
       setState('idle')
       if (e.name === 'NotAllowedError') {
-        setError('麦克风访问被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
+        setError('麦克风访问被拒绝，请在浏览器设置中允许访问')
       } else if (e.name === 'NotFoundError') {
         setError('未找到麦克风设备')
       } else if (e.name === 'NotReadableError') {
@@ -172,7 +286,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     }
   }
 
-  const stopRecording = () => {
+  const stopRecordingWeb = () => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop()
     }
@@ -186,11 +300,22 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     setState('recorded')
   }
 
+  // Unified start/stop
+  const startRecording = () => isNative() ? startRecordingNative() : startRecordingWeb()
+  const stopRecording = () => isNative() ? stopRecordingNative() : stopRecordingWeb()
+
   const handleUseRecording = async () => {
     if (!blobRef.current) return
     try {
-      const wavFile = await blobToWavFile(blobRef.current)
-      onRecorded(wavFile)
+      if (isNative()) {
+        // Native plugin returns m4a/AAC — send directly
+        const ext = blobRef.current.type.includes('aac') || blobRef.current.type.includes('mp4') ? 'm4a' : 'wav'
+        const file = new File([blobRef.current], `recording.${ext}`, { type: blobRef.current.type })
+        onRecorded(file)
+      } else {
+        const wavFile = await blobToWavFile(blobRef.current)
+        onRecorded(wavFile)
+      }
     } catch {
       setError('音频转换失败')
     }

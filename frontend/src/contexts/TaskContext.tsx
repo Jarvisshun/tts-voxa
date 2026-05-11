@@ -57,11 +57,17 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   // Hydrate on mount
   useEffect(() => { refreshTasks() }, [refreshTasks])
 
-  // Poll active batch jobs using ref to avoid interval thrashing
+  // Poll active batch jobs — only when there are active batches
   const tasksRef = useRef(tasks)
   tasksRef.current = tasks
 
   useEffect(() => {
+    const hasActive = tasks.some(t => t.type === 'batch' && (t.status === 'pending' || t.status === 'running'))
+    if (!hasActive) {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+      return
+    }
+
     const pollBatches = async () => {
       const activeBatches = tasksRef.current.filter(t => t.type === 'batch' && (t.status === 'pending' || t.status === 'running'))
       if (activeBatches.length === 0) return
@@ -76,13 +82,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
               progress: { current: d.completed_items, total: d.total_items },
             })
           }
-        } catch {}
+        } catch (e) { console.warn('Batch poll failed:', e) }
       }
     }
 
     pollingRef.current = window.setInterval(pollBatches, 2000)
     return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
-  }, [updateTask])
+  }, [tasks, updateTask])
 
   return (
     <TaskContext.Provider value={{ tasks, addTask, updateTask, removeTask, refreshTasks }}>
