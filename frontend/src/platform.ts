@@ -6,4 +6,4 @@ export function isAndroid(): boolean {
   return (window as any).Capacitor?.getPlatform() === 'android'
 }
 
-export const APP_VERSION = '2.1.3'
+export const APP_VERSION = '2.1.4'
