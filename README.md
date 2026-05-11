@@ -70,7 +70,7 @@ npm run dev
 
 ```
 MIMO_API_KEY=your_api_key_here
-MIMO_API_BASE=https://token-plan-sgp.xiaomimimo.com/v1
+MIMO_API_BASE=https://token-plan-cn.xiaomimimo.com/v1
 ```
 
 支持多服务商配置，可在设置页面添加 OpenAI 等第三方兼容 API。
@@ -342,7 +342,7 @@ Frontend runs at http://localhost:5173, backend defaults to port 8000.
 
 ```
 MIMO_API_KEY=your_api_key_here
-MIMO_API_BASE=https://token-plan-sgp.xiaomimimo.com/v1
+MIMO_API_BASE=https://token-plan-cn.xiaomimimo.com/v1
 ```
 
 Supports multi-provider configuration. Add OpenAI-compatible APIs via the Settings page.

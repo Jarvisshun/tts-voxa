@@ -1,4 +1,4 @@
-import { useState, Component, type ReactNode } from 'react'
+import { useState, useEffect, Component, type ReactNode } from 'react'
 import { TaskProvider } from './contexts/TaskContext'
 import Sidebar from './components/Sidebar'
 import TTSWorkbench from './pages/TTSWorkbench'
@@ -7,6 +7,8 @@ import VoiceDesign from './pages/VoiceDesign'
 import BatchProcess from './pages/BatchProcess'
 import History from './pages/History'
 import Settings from './pages/Settings'
+import { checkUpdate } from './api/client'
+import type { UpdateInfo } from './api/client'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
   state = { hasError: false, error: '' }
@@ -70,6 +72,14 @@ const tabs = [
 
 function App() {
   const [activeTab, setActiveTab] = useState('tts')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [updateDismissed, setUpdateDismissed] = useState(false)
+
+  useEffect(() => {
+    checkUpdate().then(info => {
+      if (info.has_update && !info.error) setUpdateInfo(info)
+    }).catch(() => {})
+  }, [])
 
   const renderPage = () => {
     switch (activeTab) {
@@ -107,6 +117,34 @@ function App() {
           </div>
         </header>
 
+        {/* Update banner */}
+        {updateInfo && !updateDismissed && (
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 flex items-center justify-between shrink-0 z-20">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              <span className="text-sm font-medium">有新版本 v{updateInfo.latest} 可用</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => { setActiveTab('settings'); setUpdateDismissed(true) }}
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-xs font-medium transition-all"
+              >
+                查看更新
+              </button>
+              <button
+                onClick={() => setUpdateDismissed(true)}
+                className="p-1 hover:bg-white/20 rounded-lg transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Sidebar + Main (desktop) */}
         <div className="hidden md:flex flex-1 min-h-0">
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
@@ -128,6 +166,26 @@ function App() {
             </div>
             <h1 className="text-sm font-semibold text-gray-900 tracking-tight">TTS Voxa</h1>
           </div>
+
+          {/* Mobile update banner */}
+          {updateInfo && !updateDismissed && (
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 flex items-center justify-between shrink-0">
+              <span className="text-xs font-medium">有新版本 v{updateInfo.latest}</span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setActiveTab('settings'); setUpdateDismissed(true) }}
+                  className="px-2 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[10px] font-medium transition-all"
+                >
+                  查看
+                </button>
+                <button onClick={() => setUpdateDismissed(true)} className="p-0.5 hover:bg-white/20 rounded transition-all">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
 
           <main className="flex-1 overflow-y-auto p-3 pb-20">
             {renderPage()}

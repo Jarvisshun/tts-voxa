@@ -22,12 +22,16 @@ async def synthesize(req: TTSRequest, db=Depends(get_db)):
             speed=req.speed,
             emotion=req.emotion,
         )
-        audio_path = save_audio(result["audio"], req.format.value, "tts")
+        save_format = req.format.value
+        audio_path = save_audio(result["audio"], save_format, "tts")
+        # PCM gets converted to WAV in save_audio
+        if save_format in ("pcm", "pcm16"):
+            save_format = "wav"
         gen_id = f"gen_{uuid.uuid4().hex[:12]}"
 
         await db.execute(
             "INSERT INTO generations (id, model, voice, text_content, audio_path, format, speed, emotion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (gen_id, req.model, req.voice, req.text, audio_path, req.format.value, req.speed, req.emotion),
+            (gen_id, req.model, req.voice, req.text, audio_path, save_format, req.speed, req.emotion),
         )
         await db.commit()
 
@@ -35,7 +39,7 @@ async def synthesize(req: TTSRequest, db=Depends(get_db)):
             "success": True,
             "data": {
                 "audio": result["audio"],
-                "format": req.format.value,
+                "format": save_format,
                 "generation_id": gen_id,
                 "audio_path": audio_path,
             },

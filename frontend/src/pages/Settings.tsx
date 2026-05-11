@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { getVersion, checkUpdate } from '../api/client'
 import type { UpdateInfo } from '../api/client'
 import { isNative } from '../platform'
+import UpdateLog from './UpdateLog'
 
 interface Provider {
   id: string
@@ -25,7 +26,7 @@ export default function Settings() {
 
   const [name, setName] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [apiBase, setApiBase] = useState('https://token-plan-sgp.xiaomimimo.com/v1')
+  const [apiBase, setApiBase] = useState('https://token-plan-cn.xiaomimimo.com/v1')
   const [modelsText, setModelsText] = useState('')
   const [isDefault, setIsDefault] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -37,6 +38,7 @@ export default function Settings() {
   const [downloading, setDownloading] = useState(false)
   const [downloadProgress, setDownloadProgress] = useState(0)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [showUpdateLog, setShowUpdateLog] = useState(false)
 
   useEffect(() => {
     getVersion().then(d => setCurrentVersion(d.version)).catch(() => {})
@@ -155,14 +157,14 @@ export default function Settings() {
     setEditingId(null)
     setName('')
     setApiKey('')
-    setApiBase('https://token-plan-sgp.xiaomimimo.com/v1')
+    setApiBase('https://token-plan-cn.xiaomimimo.com/v1')
     setModelsText('')
     setIsDefault(true)
     setTestResult(null)
   }
 
   const PRESETS = [
-    { name: '小米 MiMo', api_base: 'https://token-plan-sgp.xiaomimimo.com/v1', models: 'mimo-v2.5-tts, mimo-v2-tts, mimo-v2.5-tts-voiceclone, mimo-v2.5-tts-voicedesign' },
+    { name: '小米 MiMo', api_base: 'https://token-plan-cn.xiaomimimo.com/v1', models: 'mimo-v2.5-tts, mimo-v2-tts, mimo-v2.5-tts-voiceclone, mimo-v2.5-tts-voicedesign' },
     { name: 'OpenAI', api_base: 'https://api.openai.com/v1', models: 'tts-1, tts-1-hd' },
     { name: '自定义', api_base: '', models: '' },
   ]
@@ -300,21 +302,29 @@ export default function Settings() {
             <span className="text-sm text-gray-500">当前版本</span>
             <span className="ml-2 text-sm font-mono font-medium text-gray-800">v{currentVersion || '...'}</span>
           </div>
-          <button
-            onClick={handleCheckUpdate}
-            disabled={checkingUpdate}
-            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200 flex items-center gap-1.5"
-          >
-            {checkingUpdate ? (
-              <>
-                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                检查中...
-              </>
-            ) : '检查更新'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowUpdateLog(true)}
+              className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-600 transition-all"
+            >
+              更新日志
+            </button>
+            <button
+              onClick={handleCheckUpdate}
+              disabled={checkingUpdate}
+              className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200 flex items-center gap-1.5"
+            >
+              {checkingUpdate ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  检查中...
+                </>
+              ) : '检查更新'}
+            </button>
+          </div>
         </div>
 
         {updateInfo && (
@@ -366,6 +376,9 @@ export default function Settings() {
           </div>
         )}
       </div>
+
+      {/* Update Log Modal */}
+      {showUpdateLog && <UpdateLog onClose={() => setShowUpdateLog(false)} />}
 
       {/* Confirm Delete Modal */}
       {confirmDelete && (

@@ -26,7 +26,7 @@ def _get_api_key():
     return ""
 
 MIMO_API_KEY = _get_api_key()
-MIMO_API_BASE = os.getenv("MIMO_API_BASE", "https://token-plan-sgp.xiaomimimo.com/v1")
+MIMO_API_BASE = os.getenv("MIMO_API_BASE", "https://token-plan-cn.xiaomimimo.com/v1")
 AUDIO_STORE_PATH = os.getenv("AUDIO_STORE_PATH", "./audio_store")
 DATABASE_PATH = os.getenv("DATABASE_PATH", "./data.db")
 

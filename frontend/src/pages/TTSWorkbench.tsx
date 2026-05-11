@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { synthesizeTTS, getModels, getPresets, type TTSRequest } from '../api/client'
+import { pcmToWavBase64 } from '../utils/audio'
 import WaveformPlayer from '../components/WaveformPlayer'
 
 interface ModelItem {
@@ -61,7 +62,14 @@ export default function TTSWorkbench() {
       }
       const resp = await synthesizeTTS(req)
       if (resp.success && resp.data) {
-        const audioUrl = `data:audio/${resp.data.format};base64,${resp.data.audio}`
+        let audioBase64 = resp.data.audio
+        let audioFormat = resp.data.format
+        // PCM needs WAV header to be playable in browser
+        if (audioFormat === 'pcm') {
+          audioBase64 = pcmToWavBase64(audioBase64)
+          audioFormat = 'wav'
+        }
+        const audioUrl = `data:audio/${audioFormat};base64,${audioBase64}`
         setAudioSrc(audioUrl)
       } else {
         setError(resp.error?.message || '合成失败')

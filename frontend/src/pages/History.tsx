@@ -25,7 +25,9 @@ export default function History() {
             if (item.audio_path) {
               try {
                 urls[item.id] = await getAudioDataUrlForHistory(item.id, item.format || 'wav')
-              } catch {}
+              } catch (e) {
+                console.warn('Failed to load audio for history item:', item.id, e)
+              }
             }
           }
           setAudioUrls(urls)
@@ -134,7 +136,18 @@ export default function History() {
                     </div>
                     {item.audio_path && (
                       <div className="mt-2">
-                        <WaveformPlayer audioSrc={isNative() ? (audioUrls[item.id] || '') : `/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                        {isNative() ? (
+                          audioUrls[item.id] ? (
+                            <WaveformPlayer audioSrc={audioUrls[item.id]} height={32} />
+                          ) : (
+                            <div className="flex items-center justify-center py-3 text-xs text-gray-400">
+                              <svg className="w-3.5 h-3.5 animate-spin mr-1.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                              加载音频中...
+                            </div>
+                          )
+                        ) : (
+                          <WaveformPlayer audioSrc={`/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                        )}
                       </div>
                     )}
                     <div className="flex justify-end">
@@ -152,7 +165,18 @@ export default function History() {
               {/* Collapsed waveform */}
               {expandedId !== item.id && item.audio_path && (
                 <div className="px-4 pb-4">
-                  <WaveformPlayer audioSrc={isNative() ? (audioUrls[item.id] || '') : `/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                  {isNative() ? (
+                    audioUrls[item.id] ? (
+                      <WaveformPlayer audioSrc={audioUrls[item.id]} height={32} />
+                    ) : (
+                      <div className="flex items-center justify-center py-3 text-xs text-gray-400">
+                        <svg className="w-3.5 h-3.5 animate-spin mr-1.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        加载音频中...
+                      </div>
+                    )
+                  ) : (
+                    <WaveformPlayer audioSrc={`/audio/${item.audio_path.split('/').pop()}`} height={32} />
+                  )}
                 </div>
               )}
             </div>

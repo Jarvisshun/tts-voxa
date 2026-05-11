@@ -5,7 +5,6 @@ import android.content.pm.PackageManager;
 import android.media.MediaRecorder;
 import android.util.Base64;
 
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.getcapacitor.JSObject;
@@ -20,8 +19,6 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 @CapacitorPlugin(
     name = "TtsVoxaMicrophone",
@@ -33,7 +30,6 @@ public class MicrophonePlugin extends Plugin {
 
     private MediaRecorder recorder;
     private File outputFile;
-    private CompletableFuture<Void> permissionFuture;
 
     @PluginMethod
     public void checkMicPermission(PluginCall call) {
@@ -52,34 +48,16 @@ public class MicrophonePlugin extends Plugin {
             call.resolve(ret);
             return;
         }
-
-        permissionFuture = new CompletableFuture<>();
-        bridge.saveCall(call);
-        ActivityCompat.requestPermissions(getActivity(), new String[]{Manifest.permission.RECORD_AUDIO}, 9001);
-
-        try {
-            permissionFuture.get(10, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            permissionFuture = null;
-            JSObject ret = new JSObject();
-            ret.put("granted", false);
-            ret.put("error", "Permission request timed out");
-            call.resolve(ret);
-            return;
-        }
-
-        permissionFuture = null;
-        int newResult = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO);
-        JSObject ret = new JSObject();
-        ret.put("granted", newResult == PackageManager.PERMISSION_GRANTED);
-        call.resolve(ret);
+        // Use Capacitor's built-in permission flow (ActivityResultLauncher)
+        requestPermissionForAlias("microphone", call, "onPermissionResult");
     }
 
     @PermissionCallback
-    private void onPermissionResult(PluginCall call) {
-        if (permissionFuture != null) {
-            permissionFuture.complete(null);
-        }
+    public void onPermissionResult(PluginCall call) {
+        int result = ContextCompat.checkSelfPermission(getContext(), Manifest.permission.RECORD_AUDIO);
+        JSObject ret = new JSObject();
+        ret.put("granted", result == PackageManager.PERMISSION_GRANTED);
+        call.resolve(ret);
     }
 
     @PluginMethod

@@ -1,6 +1,7 @@
 import type { TTSRequest, TTSResponse, VoiceDesignRequest } from './types'
 import { getProviderApiKey } from '../db/database'
 import { saveAudio } from '../storage/audioStorage'
+import { pcmToWavBase64 } from '../utils/audio'
 
 interface MiMoConfig {
   apiKey: string
@@ -10,7 +11,7 @@ interface MiMoConfig {
 async function getConfig(): Promise<MiMoConfig> {
   const provider = await getProviderApiKey()
   if (provider) return { apiKey: provider.api_key, apiBase: provider.api_base }
-  return { apiKey: '', apiBase: 'https://token-plan-sgp.xiaomimimo.com/v1' }
+  return { apiKey: '', apiBase: 'https://token-plan-cn.xiaomimimo.com/v1' }
 }
 
 function headers(apiKey: string): Record<string, string> {
@@ -148,40 +149,6 @@ export async function voiceDesign(
   if (!resp.ok) throw new Error(`Voice design API error: ${resp.status}`)
   const data = await resp.json()
   return { audio: data.choices[0].message.audio.data, format: req.format || 'wav' }
-}
-
-function pcmToWavBase64(pcmBase64: string, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): string {
-  const pcmBinary = atob(pcmBase64)
-  const pcmBytes = new Uint8Array(pcmBinary.length)
-  for (let i = 0; i < pcmBinary.length; i++) pcmBytes[i] = pcmBinary.charCodeAt(i)
-
-  const byteRate = sampleRate * numChannels * bitsPerSample / 8
-  const blockAlign = numChannels * bitsPerSample / 8
-  const bufferSize = 44 + pcmBytes.length
-  const buffer = new ArrayBuffer(bufferSize)
-  const view = new DataView(buffer)
-
-  const writeStr = (off: number, s: string) => { for (let i = 0; i < s.length; i++) view.setUint8(off + i, s.charCodeAt(i)) }
-  writeStr(0, 'RIFF')
-  view.setUint32(4, bufferSize - 8, true)
-  writeStr(8, 'WAVE')
-  writeStr(12, 'fmt ')
-  view.setUint32(16, 16, true)
-  view.setUint16(20, 1, true) // PCM format
-  view.setUint16(22, numChannels, true)
-  view.setUint32(24, sampleRate, true)
-  view.setUint32(28, byteRate, true)
-  view.setUint16(32, blockAlign, true)
-  view.setUint16(34, bitsPerSample, true)
-  writeStr(36, 'data')
-  view.setUint32(40, pcmBytes.length, true)
-
-  new Uint8Array(buffer).set(pcmBytes, 44)
-
-  let binary = ''
-  const wavBytes = new Uint8Array(buffer)
-  for (let i = 0; i < wavBytes.length; i++) binary += String.fromCharCode(wavBytes[i])
-  return btoa(binary)
 }
 
 export async function synthesizeAndSave(req: TTSRequest): Promise<TTSResponse> {

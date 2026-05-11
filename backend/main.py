@@ -39,7 +39,7 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-__version__ = "2.1.6"
+__version__ = "2.2.0"
 
 app = FastAPI(title="TTS Voxa", version=__version__)
 
