@@ -9,14 +9,14 @@ interface AudioRecorderProps {
 
 type RecorderState = 'idle' | 'starting' | 'recording' | 'recorded'
 
-// Lazy-load the microphone plugin (only on native)
-let MicrophonePlugin: any = null
-async function getMicrophone() {
-  if (!MicrophonePlugin) {
-    const mod = await import('@mozartec/capacitor-microphone')
-    MicrophonePlugin = mod.Microphone
+// Lazy-load the custom microphone plugin (bypasses broken Capacitor permission system on Xiaomi)
+let TtsVoxaMic: any = null
+async function getTtsVoxaMic() {
+  if (!TtsVoxaMic) {
+    const mod = await import('../plugins/ttsVoxaMicrophone')
+    TtsVoxaMic = mod.default
   }
-  return MicrophonePlugin
+  return TtsVoxaMic
 }
 
 export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
@@ -130,30 +130,28 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     draw()
   }, [])
 
-  // --- Native recording using @mozartec/capacitor-microphone ---
+  // --- Native recording using custom TtsVoxaMicrophone plugin ---
+  // This bypasses @mozartec/capacitor-microphone's broken permission handling on Xiaomi/HyperOS
   const startRecordingNative = async () => {
     setState('starting')
     setError('')
     try {
-      // Wrap the ENTIRE flow (plugin load + permissions + start) in a single timeout
-      // because checkPermissions/requestPermissions can also hang on some Xiaomi devices
-      await Promise.race([
-        (async () => {
-          const Microphone = await getMicrophone()
+      const mic = await getTtsVoxaMic()
 
-          // Check and request permissions
-          let perm = await Microphone.checkPermissions()
-          if (perm.microphone !== 'granted') {
-            perm = await Microphone.requestPermissions()
-          }
-          if (perm.microphone !== 'granted') {
-            throw new Error('PERMISSION_DENIED')
-          }
+      // Check permission
+      let permResult = await mic.checkMicPermission()
+      if (!permResult.granted) {
+        // Request permission — has built-in 10s timeout in native code
+        permResult = await mic.requestMicPermission()
+      }
+      if (!permResult.granted) {
+        setError('麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
+        setState('idle')
+        return
+      }
 
-          await Microphone.startRecording()
-        })(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('录音启动超时，请重试')), 15000)),
-      ])
+      // Start recording
+      await mic.startMicRecording()
       setState('recording')
       setDuration(0)
 
@@ -164,18 +162,14 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       drawNativeWaveform()
     } catch (e: any) {
       setState('idle')
-      if (e.message === 'PERMISSION_DENIED') {
-        setError('麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
-      } else {
-        setError(e.message || '录音启动失败')
-      }
+      setError(e.message || '录音启动失败')
     }
   }
 
   const stopRecordingNative = async () => {
     try {
-      const Microphone = await getMicrophone()
-      const result = await Microphone.stopRecording()
+      const mic = await getTtsVoxaMic()
+      const result = await mic.stopMicRecording()
 
       if (timerRef.current) {
         clearInterval(timerRef.current)
@@ -185,38 +179,12 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         cancelAnimationFrame(animFrameRef.current)
       }
 
-      // result: { base64String, dataUrl, webPath, duration, format, mimeType }
-      if (result.base64String) {
-        // Decode base64 to blob, then convert to WAV file
-        const binary = atob(result.base64String)
+      if (result.base64) {
+        const binary = atob(result.base64)
         const bytes = new Uint8Array(binary.length)
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
-        const mimeType = result.mimeType || 'audio/aac'
-        const blob = new Blob([bytes], { type: mimeType })
+        const blob = new Blob([bytes], { type: 'audio/aac' })
         blobRef.current = blob
-
-        // Create wavesurfer for playback
-        if (waveformRef.current && result.webPath) {
-          waveformRef.current.innerHTML = ''
-          const ws = WaveSurfer.create({
-            container: waveformRef.current,
-            height: 48,
-            waveColor: '#c7d2fe',
-            progressColor: '#6366f1',
-            cursorColor: '#4f46e5',
-            barWidth: 2,
-            barGap: 1,
-            barRadius: 2,
-            normalize: true,
-          })
-          ws.load(result.webPath)
-          wsRef.current = ws
-        }
-      }
-
-      // Update duration from plugin if available
-      if (result.duration && result.duration > 0) {
-        setDuration(Math.round(result.duration / 1000))
       }
 
       setState('recorded')

@@ -16,10 +16,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Register custom microphone plugin BEFORE super.onCreate
+        registerPlugin(MicrophonePlugin.class);
         super.onCreate(savedInstanceState);
-
-        // Only keep file chooser support; microphone permission is handled by
-        // Capacitor's @CapacitorPlugin in MicrophonePlugin.java
         getBridge().getWebView().setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView,
