@@ -43,7 +43,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
     try {
       const resp = await getRecentTasks(30)
       if (resp.success) {
-        setTasks(resp.data)
+        setTasks(prev => {
+          const dbTasks: TaskItem[] = resp.data
+          // Keep in-memory tasks that aren't in DB (e.g. active TTS/clone/design tasks)
+          const memOnly = prev.filter(t => !dbTasks.some(d => d.id === t.id))
+          // DB tasks first (they have persisted state), then in-memory-only tasks
+          return [...dbTasks, ...memOnly]
+        })
       }
     } catch {}
   }, [])
@@ -51,10 +57,13 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   // Hydrate on mount
   useEffect(() => { refreshTasks() }, [refreshTasks])
 
-  // Poll active batch jobs
+  // Poll active batch jobs using ref to avoid interval thrashing
+  const tasksRef = useRef(tasks)
+  tasksRef.current = tasks
+
   useEffect(() => {
     const pollBatches = async () => {
-      const activeBatches = tasks.filter(t => t.type === 'batch' && (t.status === 'pending' || t.status === 'running'))
+      const activeBatches = tasksRef.current.filter(t => t.type === 'batch' && (t.status === 'pending' || t.status === 'running'))
       if (activeBatches.length === 0) return
 
       for (const batch of activeBatches) {
@@ -73,7 +82,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
     pollingRef.current = window.setInterval(pollBatches, 2000)
     return () => { if (pollingRef.current) clearInterval(pollingRef.current) }
-  }, [tasks, updateTask])
+  }, [updateTask])
 
   return (
     <TaskContext.Provider value={{ tasks, addTask, updateTask, removeTask, refreshTasks }}>
