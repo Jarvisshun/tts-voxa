@@ -135,23 +135,24 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     setState('starting')
     setError('')
     try {
-      const Microphone = await getMicrophone()
-
-      // Check and request permissions
-      let perm = await Microphone.checkPermissions()
-      if (perm.microphone !== 'granted') {
-        perm = await Microphone.requestPermissions()
-      }
-      if (perm.microphone !== 'granted') {
-        setError('麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
-        setState('idle')
-        return
-      }
-
-      // Wrap in timeout — MediaRecorder.start() can block on some Xiaomi devices
+      // Wrap the ENTIRE flow (plugin load + permissions + start) in a single timeout
+      // because checkPermissions/requestPermissions can also hang on some Xiaomi devices
       await Promise.race([
-        Microphone.startRecording(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('录音启动超时，请重试')), 10000)),
+        (async () => {
+          const Microphone = await getMicrophone()
+
+          // Check and request permissions
+          let perm = await Microphone.checkPermissions()
+          if (perm.microphone !== 'granted') {
+            perm = await Microphone.requestPermissions()
+          }
+          if (perm.microphone !== 'granted') {
+            throw new Error('PERMISSION_DENIED')
+          }
+
+          await Microphone.startRecording()
+        })(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('录音启动超时，请重试')), 15000)),
       ])
       setState('recording')
       setDuration(0)
@@ -163,7 +164,11 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       drawNativeWaveform()
     } catch (e: any) {
       setState('idle')
-      setError(e.message || '录音启动失败')
+      if (e.message === 'PERMISSION_DENIED') {
+        setError('麦克风权限被拒绝，请在系统设置中允许 TTS Voxa 使用麦克风')
+      } else {
+        setError(e.message || '录音启动失败')
+      }
     }
   }
 

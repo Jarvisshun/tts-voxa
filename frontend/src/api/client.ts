@@ -1,8 +1,23 @@
 import { isNative, APP_VERSION } from '../platform'
-import { synthesizeAndSave, cloneAndSave, designAndSave, checkUpdateNative, tts, ttsStream } from './mimoApi'
-import * as db from '../db/database'
-import { getAudioDataUrl } from '../storage/audioStorage'
 import type { TTSRequest, TTSResponse, VoiceDesignRequest, BatchCreateRequest, UpdateInfo } from './types'
+
+// Dynamic imports for native-only modules (avoids loading Capacitor plugins on desktop)
+let _mimoApi: typeof import('./mimoApi') | null = null
+let _db: typeof import('../db/database') | null = null
+let _audioStorage: typeof import('../storage/audioStorage') | null = null
+
+async function getMimoApi() {
+  if (!_mimoApi) _mimoApi = await import('./mimoApi')
+  return _mimoApi
+}
+async function getDb() {
+  if (!_db) _db = await import('../db/database')
+  return _db
+}
+async function getAudioStorage() {
+  if (!_audioStorage) _audioStorage = await import('../storage/audioStorage')
+  return _audioStorage
+}
 
 export type { TTSRequest, TTSResponse, VoiceDesignRequest, BatchCreateRequest, UpdateInfo }
 
@@ -21,13 +36,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export async function synthesizeTTS(req: TTSRequest): Promise<TTSResponse> {
-  if (isNative()) return synthesizeAndSave(req)
+  if (isNative()) return (await getMimoApi()).synthesizeAndSave(req)
   return request('/tts/synthesize', { method: 'POST', body: JSON.stringify(req) })
 }
 
 export async function synthesizeStream(req: TTSRequest): Promise<ReadableStream> {
   if (isNative()) {
-    const gen = ttsStream(req)
+    const gen = (await getMimoApi()).ttsStream(req)
     return new ReadableStream({
       async pull(controller) {
         const { value, done } = await gen.next()
@@ -54,7 +69,7 @@ export async function cloneSynthesize(
   if (isNative()) {
     const base64 = await fileToBase64(audioFile)
     const audioFormat = audioFile.name.split('.').pop() || 'wav'
-    return cloneAndSave(base64, audioFormat, text, format, emotion)
+    return (await getMimoApi()).cloneAndSave(base64, audioFormat, text, format, emotion)
   }
   const form = new FormData()
   form.append('audio', audioFile)
@@ -88,13 +103,14 @@ export async function cloneSave(
 }
 
 export async function designVoice(req: VoiceDesignRequest): Promise<TTSResponse> {
-  if (isNative()) return designAndSave(req)
+  if (isNative()) return (await getMimoApi()).designAndSave(req)
   return request('/design/generate', { method: 'POST', body: JSON.stringify(req) })
 }
 
 export async function createBatch(req: BatchCreateRequest) {
   if (isNative()) {
-    const result = await db.createBatchJob(req.name, req.texts, req.voice || 'mimo_default', req.model || 'mimo-v2.5-tts', req.format || 'wav', req.speed || 1.0)
+    const d = await getDb()
+    const result = await d.createBatchJob(req.name, req.texts, req.voice || 'mimo_default', req.model || 'mimo-v2.5-tts', req.format || 'wav', req.speed || 1.0)
     processBatchNative(result.job_id)
     return { success: true, data: result }
   }
@@ -105,40 +121,44 @@ export async function createBatch(req: BatchCreateRequest) {
 
 async function processBatchNative(jobId: string) {
   try {
-    await db.updateBatchJobStatus(jobId, 'running')
-    const status = await db.getBatchJobStatus(jobId)
+    const d = await getDb()
+    const mimo = await getMimoApi()
+    const storage = await getAudioStorage()
+    await d.updateBatchJobStatus(jobId, 'running')
+    const status = await d.getBatchJobStatus(jobId)
     if (!status) return
     const job = status
     const items = job.items || []
     for (let i = 0; i < items.length; i++) {
       try {
-        const result = await tts({ text: items[i].text_content, model: job.model, voice: job.voice, format: job.format, speed: job.speed })
+        const result = await mimo.tts({ text: items[i].text_content, model: job.model, voice: job.voice, format: job.format, speed: job.speed })
         const audioPath = `${items[i].id}.${job.format}`
-        const { saveAudio } = await import('../storage/audioStorage')
-        await saveAudio(result.audio, result.format, items[i].id)
-        await db.updateBatchItemStatus(items[i].id, 'completed', audioPath)
+        await storage.saveAudio(result.audio, result.format, items[i].id)
+        await d.updateBatchItemStatus(items[i].id, 'completed', audioPath)
         await insertBatchGeneration(items[i].id, job.model, job.voice, items[i].text_content, audioPath, job.format, job.speed)
       } catch (e: any) {
-        await db.updateBatchItemStatus(items[i].id, 'failed', undefined, e.message)
+        await d.updateBatchItemStatus(items[i].id, 'failed', undefined, e.message)
       }
-      await db.updateBatchJobProgress(jobId, i + 1)
+      await d.updateBatchJobProgress(jobId, i + 1)
       await new Promise(r => setTimeout(r, 0))
     }
-    await db.updateBatchJobStatus(jobId, 'completed')
+    await d.updateBatchJobStatus(jobId, 'completed')
   } catch {
-    await db.updateBatchJobStatus(jobId, 'failed')
+    // jobId is in scope, but we need db again
+    const d = await getDb()
+    await d.updateBatchJobStatus(jobId, 'failed')
   }
 }
 
 async function insertBatchGeneration(id: string, model: string, voice: string, text: string, audioPath: string, format: string, speed: number) {
   try {
-    await db.insertGeneration(id, model, voice, text, audioPath, format, speed, null)
+    await (await getDb()).insertGeneration(id, model, voice, text, audioPath, format, speed, null)
   } catch {}
 }
 
 export async function getBatchStatus(jobId: string) {
   if (isNative()) {
-    const data = await db.getBatchJobStatus(jobId)
+    const data = await (await getDb()).getBatchJobStatus(jobId)
     return { success: true, data }
   }
   return request<{ success: boolean; data: any }>(`/batch/${jobId}/status`)
@@ -166,7 +186,7 @@ export async function getPresets() {
 
 export async function getModels() {
   if (isNative()) {
-    const providers = await db.getProviders()
+    const providers = await (await getDb()).getProviders()
     const models: Array<{ id: string; name: string; type: string; provider?: string }> = []
     for (const p of providers) {
       const pModels = Array.isArray(p.models) ? p.models : []
@@ -186,7 +206,7 @@ export async function getModels() {
 
 export async function getHistory(page = 1, limit = 20) {
   if (isNative()) {
-    const data = await db.getHistory(page, limit)
+    const data = await (await getDb()).getHistory(page, limit)
     return { success: true, data }
   }
   return request<{ success: boolean; data: { items: any[]; total: number } }>(
@@ -196,7 +216,7 @@ export async function getHistory(page = 1, limit = 20) {
 
 export async function getRecentTasks(limit = 20) {
   if (isNative()) {
-    const data = await db.getRecentTasks(limit)
+    const data = await (await getDb()).getRecentTasks(limit)
     return { success: true, data }
   }
   return request<{ success: boolean; data: any[] }>(`/history/tasks?limit=${limit}`)
@@ -204,7 +224,7 @@ export async function getRecentTasks(limit = 20) {
 
 export async function getBatchList() {
   if (isNative()) {
-    const data = await db.getBatchJobs()
+    const data = await (await getDb()).getBatchJobs()
     return { success: true, data }
   }
   return request<{ success: boolean; data: any[] }>('/batch/list')
@@ -216,10 +236,10 @@ export function getBatchItemAudioUrl(jobId: string, itemIndex: number): string {
 
 export async function getBatchItemAudioDataUrl(jobId: string, itemIndex: number): Promise<string> {
   if (isNative()) {
-    const path = await db.getBatchItemAudioPath(jobId, itemIndex)
+    const path = await (await getDb()).getBatchItemAudioPath(jobId, itemIndex)
     if (!path) return ''
     const format = path.split('.').pop() || 'wav'
-    return getAudioDataUrl(path, format)
+    return (await getAudioStorage()).getAudioDataUrl(path, format)
   }
   return `${API_BASE}/batch/${jobId}/items/${itemIndex}/audio`
 }
@@ -230,13 +250,13 @@ export async function getVersion() {
 }
 
 export async function checkUpdate() {
-  if (isNative()) return checkUpdateNative(APP_VERSION)
+  if (isNative()) return (await getMimoApi()).checkUpdateNative(APP_VERSION)
   return request<UpdateInfo>('/update/check')
 }
 
 export async function getProviders() {
   if (isNative()) {
-    const data = await db.getProviders()
+    const data = await (await getDb()).getProviders()
     return { success: true, data }
   }
   return request<{ success: boolean; data: any[] }>('/config/providers')
@@ -244,7 +264,7 @@ export async function getProviders() {
 
 export async function addProvider(name: string, apiKey: string, apiBase: string, models: any[], isDefault: boolean) {
   if (isNative()) {
-    await db.addProvider(name, apiKey, apiBase, models, isDefault)
+    await (await getDb()).addProvider(name, apiKey, apiBase, models, isDefault)
     return { success: true }
   }
   return request<{ success: boolean }>('/config/providers', {
@@ -255,7 +275,7 @@ export async function addProvider(name: string, apiKey: string, apiBase: string,
 
 export async function updateProvider(id: string, name: string, apiKey: string, apiBase: string, models: any[], isDefault: boolean) {
   if (isNative()) {
-    await db.updateProvider(id, name, apiKey, apiBase, models, isDefault)
+    await (await getDb()).updateProvider(id, name, apiKey, apiBase, models, isDefault)
     return { success: true }
   }
   return request<{ success: boolean }>(`/config/providers/${id}`, {
@@ -266,7 +286,7 @@ export async function updateProvider(id: string, name: string, apiKey: string, a
 
 export async function deleteProvider(id: string) {
   if (isNative()) {
-    await db.deleteProvider(id)
+    await (await getDb()).deleteProvider(id)
     return { success: true }
   }
   return request<{ success: boolean }>(`/config/providers/${id}`, { method: 'DELETE' })
@@ -302,14 +322,14 @@ function fileToBase64(file: File): Promise<string> {
 
 export async function getAudioDataUrlForHistory(generationId: string, format: string): Promise<string> {
   if (isNative()) {
-    return getAudioDataUrl(`${generationId}.${format}`, format)
+    return (await getAudioStorage()).getAudioDataUrl(`${generationId}.${format}`, format)
   }
   return `${API_BASE}/history/${generationId}/audio`
 }
 
 export async function deleteHistory(id: string) {
   if (isNative()) {
-    await db.deleteGeneration(id)
+    await (await getDb()).deleteGeneration(id)
     return { success: true }
   }
   return request<{ success: boolean }>(`/history/${id}`, { method: 'DELETE' })
