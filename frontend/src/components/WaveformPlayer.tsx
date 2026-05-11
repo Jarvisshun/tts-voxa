@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import { formatSeconds } from '../utils/audio'
+import { isNative } from '../platform'
 
 interface WaveformPlayerProps {
   audioSrc: string
@@ -19,6 +20,12 @@ const WS_OPTIONS = {
   normalize: true,
 } as const
 
+function dataUrlToBase64(dataUrl: string): { base64: string; format: string } | null {
+  const match = dataUrl.match(/^data:audio\/([^;]+);base64,(.+)$/)
+  if (!match) return null
+  return { format: match[1], base64: match[2] }
+}
+
 export default function WaveformPlayer({ audioSrc, height = 48, showDownload = false, downloadFilename = 'audio.wav' }: WaveformPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WaveSurfer | null>(null)
@@ -26,6 +33,7 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
   const [currentTime, setCurrentTime] = useState('0:00')
   const [duration, setDuration] = useState('0:00')
   const [ready, setReady] = useState(false)
+  const [downloading, setDownloading] = useState(false)
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -72,24 +80,63 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
   }, [])
 
   const handleDownload = useCallback(async () => {
+    setDownloading(true)
     try {
-      const resp = await fetch(audioSrc)
-      const blob = await resp.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = downloadFilename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch {
+      if (isNative()) {
+        // On native Android: save to filesystem using Capacitor
+        const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const parsed = dataUrlToBase64(audioSrc)
+        if (parsed) {
+          await Filesystem.writeFile({
+            path: downloadFilename,
+            data: parsed.base64,
+            directory: Directory.Cache,
+          })
+          const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
+          // Open with system intent to save/share
+          window.open(uri.uri, '_system')
+        } else {
+          const resp = await fetch(audioSrc)
+          if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
+          const blob = await resp.blob()
+          const arrayBuffer = await blob.arrayBuffer()
+          const bytes = new Uint8Array(arrayBuffer)
+          let binary = ''
+          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+          const base64 = btoa(binary)
+          await Filesystem.writeFile({
+            path: downloadFilename,
+            data: base64,
+            directory: Directory.Cache,
+          })
+          const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
+          window.open(uri.uri, '_system')
+        }
+      } else {
+        // Desktop: fetch → blob → download via <a> click
+        const resp = await fetch(audioSrc)
+        if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
+        const blob = await resp.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = downloadFilename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+    } catch (e) {
+      console.warn('Download failed, trying fallback:', e)
+      // Fallback: direct <a> download
       const a = document.createElement('a')
       a.href = audioSrc
       a.download = downloadFilename
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
+    } finally {
+      setDownloading(false)
     }
   }, [audioSrc, downloadFilename])
 
@@ -119,11 +166,16 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
       {showDownload && (
         <button
           onClick={handleDownload}
-          className="shrink-0 text-gray-400 hover:text-indigo-500 transition-colors"
+          disabled={downloading}
+          className="shrink-0 text-gray-400 hover:text-indigo-500 disabled:text-gray-200 transition-colors"
         >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-          </svg>
+          {downloading ? (
+            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
+            </svg>
+          )}
         </button>
       )}
     </div>
