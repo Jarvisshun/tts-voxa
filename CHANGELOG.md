@@ -1,6 +1,21 @@
 # Changelog
 
-## v2.2.3-post (2026-05-13)
+## v2.2.4 (2026-05-13)
+
+### Bug Fixes
+- **Desktop EXE**: Fixed static files not found — `frontend/dist` was bundled as `frontend/dist` instead of `static` in PyInstaller
+- **Android crash**: Fixed app crash on launch — `jeep-sqlite` was loaded from unpkg.com CDN which is blocked in China, now loaded from local package
+
+### Code Quality
+- Migrated from deprecated `@app.on_event("startup")` to FastAPI `lifespan` context manager
+- Separated `pywebview` into `requirements-desktop.txt` (build-only dependency)
+- Replaced all `any` types in `client.ts` with proper TypeScript interfaces
+- Added type definitions: `BatchJobStatus`, `HistoryItem`, `TaskItem`, `Provider`, `ModelConfig`
+
+### Engineering
+- Added GitHub Actions CI workflow (frontend type-check + backend import checks)
+
+## v2.2.3 (2026-05-12)
 
 ### Code Quality
 - Migrated from deprecated `@app.on_event("startup")` to FastAPI `lifespan` context manager

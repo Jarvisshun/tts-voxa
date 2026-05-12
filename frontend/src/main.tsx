@@ -6,21 +6,17 @@ import { isNative } from './platform'
 
 async function bootstrap() {
   if (isNative()) {
-    // Load jeep-sqlite web component (required by @capacitor-community/sqlite on web/native)
-    await new Promise<void>((resolve) => {
-      const script = document.createElement('script')
-      script.type = 'module'
-      script.src = 'https://unpkg.com/jeep-sqlite@2.0.0/dist/jeep-sqlite/jeep-sqlite.esm.js'
-      script.onload = () => {
-        // Register the jeep-sqlite web component
-        const el = document.createElement('jeep-sqlite')
-        el.style.cssText = 'position:absolute;display:block;width:0;height:0'
-        document.body.appendChild(el)
-        resolve()
-      }
-      script.onerror = () => resolve() // non-fatal, will fail in database.ts
-      document.head.appendChild(script)
-    })
+    // Register jeep-sqlite web component from local package (not CDN — CDN blocked in China)
+    try {
+      const { applyPolyfills, defineCustomElements } = await import('jeep-sqlite/loader')
+      await applyPolyfills()
+      defineCustomElements(window)
+      const el = document.createElement('jeep-sqlite')
+      el.style.cssText = 'position:absolute;display:block;width:0;height:0'
+      document.body.appendChild(el)
+    } catch (e) {
+      console.warn('jeep-sqlite load failed:', e)
+    }
 
     const { initDatabase } = await import('./db/database')
     await initDatabase()
