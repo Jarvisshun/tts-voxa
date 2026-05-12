@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.2.3-post (2026-05-13)
+
+### Code Quality
+- Migrated from deprecated `@app.on_event("startup")` to FastAPI `lifespan` context manager
+- Separated `pywebview` into `requirements-desktop.txt` (build-only dependency)
+- Replaced all `any` types in `client.ts` with proper TypeScript interfaces
+- Added type definitions: `BatchJobStatus`, `HistoryItem`, `TaskItem`, `Provider`, `ModelConfig`
+
+### Engineering
+- Added GitHub Actions CI workflow (frontend type-check + backend import checks)
+- Updated `gh auth` with `workflow` scope for CI file pushes
+
 ## v2.2.3 (2026-05-12)
 
 ### Bug Fixes
