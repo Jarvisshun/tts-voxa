@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -55,7 +56,14 @@ def _read_version():
 
 __version__ = _read_version()
 
-app = FastAPI(title="TTS Voxa", version=__version__)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await init_db()
+    yield
+
+
+app = FastAPI(title="TTS Voxa", version=__version__, lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -83,11 +91,6 @@ app.include_router(config_router.router, prefix="/api/config", tags=["Config"])
 audio_dir = AUDIO_STORE_PATH
 os.makedirs(audio_dir, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=audio_dir), name="audio")
-
-
-@app.on_event("startup")
-async def startup():
-    await init_db()
 
 
 @app.get("/api/voices/presets")

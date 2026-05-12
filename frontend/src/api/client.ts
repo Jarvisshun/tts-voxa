@@ -1,5 +1,5 @@
 import { isNative, APP_VERSION } from '../platform'
-import type { TTSRequest, TTSResponse, VoiceDesignRequest, BatchCreateRequest, UpdateInfo } from './types'
+import type { TTSRequest, TTSResponse, VoiceDesignRequest, BatchCreateRequest, UpdateInfo, BatchJobStatus, HistoryItem, TaskItem, Provider, ModelConfig } from './types'
 
 // Dynamic imports for native-only modules (avoids loading Capacitor plugins on desktop)
 let _mimoApi: typeof import('./mimoApi') | null = null
@@ -139,8 +139,9 @@ async function processBatchNative(jobId: string) {
         const audioPath = await storage.saveAudio(result.audio, result.format, items[i].id)
         await d.updateBatchItemStatus(items[i].id, 'completed', audioPath)
         await insertBatchGeneration(items[i].id, job.model, job.voice, items[i].text_content, audioPath, job.format, job.speed)
-      } catch (e: any) {
-        await d.updateBatchItemStatus(items[i].id, 'failed', undefined, e.message)
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Unknown error'
+        await d.updateBatchItemStatus(items[i].id, 'failed', undefined, message)
       }
       await d.updateBatchJobProgress(jobId, i + 1)
       await new Promise(r => setTimeout(r, 0))
@@ -164,7 +165,7 @@ export async function getBatchStatus(jobId: string) {
     const data = await (await getDb()).getBatchJobStatus(jobId)
     return { success: true, data }
   }
-  return request<{ success: boolean; data: any }>(`/batch/${jobId}/status`)
+  return request<{ success: boolean; data: BatchJobStatus }>(`/batch/${jobId}/status`)
 }
 
 export async function getPresets() {
@@ -212,7 +213,7 @@ export async function getHistory(page = 1, limit = 20) {
     const data = await (await getDb()).getHistory(page, limit)
     return { success: true, data }
   }
-  return request<{ success: boolean; data: { items: any[]; total: number } }>(
+  return request<{ success: boolean; data: { items: HistoryItem[]; total: number } }>(
     `/history?page=${page}&limit=${limit}`
   )
 }
@@ -222,7 +223,7 @@ export async function getRecentTasks(limit = 20) {
     const data = await (await getDb()).getRecentTasks(limit)
     return { success: true, data }
   }
-  return request<{ success: boolean; data: any[] }>(`/history/tasks?limit=${limit}`)
+  return request<{ success: boolean; data: TaskItem[] }>(`/history/tasks?limit=${limit}`)
 }
 
 export async function getBatchList() {
@@ -230,7 +231,7 @@ export async function getBatchList() {
     const data = await (await getDb()).getBatchJobs()
     return { success: true, data }
   }
-  return request<{ success: boolean; data: any[] }>('/batch/list')
+  return request<{ success: boolean; data: BatchJobStatus[] }>('/batch/list')
 }
 
 export function getBatchItemAudioUrl(jobId: string, itemIndex: number): string {
@@ -262,10 +263,10 @@ export async function getProviders() {
     const data = await (await getDb()).getProviders()
     return { success: true, data }
   }
-  return request<{ success: boolean; data: any[] }>('/config/providers')
+  return request<{ success: boolean; data: Provider[] }>('/config/providers')
 }
 
-export async function addProvider(name: string, apiKey: string, apiBase: string, models: any[], isDefault: boolean) {
+export async function addProvider(name: string, apiKey: string, apiBase: string, models: ModelConfig[], isDefault: boolean) {
   if (isNative()) {
     await (await getDb()).addProvider(name, apiKey, apiBase, models, isDefault)
     return { success: true }
@@ -276,7 +277,7 @@ export async function addProvider(name: string, apiKey: string, apiBase: string,
   })
 }
 
-export async function updateProvider(id: string, name: string, apiKey: string, apiBase: string, models: any[], isDefault: boolean) {
+export async function updateProvider(id: string, name: string, apiKey: string, apiBase: string, models: ModelConfig[], isDefault: boolean) {
   if (isNative()) {
     await (await getDb()).updateProvider(id, name, apiKey, apiBase, models, isDefault)
     return { success: true }
@@ -300,8 +301,9 @@ export async function testConnection(apiKey: string, apiBase: string) {
     try {
       const resp = await fetch(`${apiBase}/models`, { headers: { 'Authorization': `Bearer ${apiKey}` } })
       return { success: resp.ok, message: resp.ok ? '连接成功' : `连接失败: ${resp.status}` }
-    } catch (e: any) {
-      return { success: false, message: `连接失败: ${e.message}` }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Unknown error'
+      return { success: false, message: `连接失败: ${message}` }
     }
   }
   return request<{ success: boolean; message: string }>('/config/test', {
