@@ -90,8 +90,12 @@ export async function cloneSave(
 ): Promise<{ success: boolean; data: { voice_id: string; name: string } }> {
   if (isNative()) {
     const voiceId = `voice_${crypto.randomUUID().slice(0, 12)}`
+    const base64 = await fileToBase64(audioFile)
+    const format = audioFile.name.split('.').pop() || 'wav'
     const { saveVoice } = await import('../db/database')
-    await saveVoice(voiceId, name, 'clone', voiceId, '', `${voiceId}.wav`)
+    const { saveAudio } = await import('../storage/audioStorage')
+    const audioPath = await saveAudio(base64, format, voiceId)
+    await saveVoice(voiceId, name, 'clone', voiceId, '', audioPath)
     return { success: true, data: { voice_id: voiceId, name } }
   }
   const form = new FormData()
@@ -132,8 +136,7 @@ async function processBatchNative(jobId: string) {
     for (let i = 0; i < items.length; i++) {
       try {
         const result = await mimo.tts({ text: items[i].text_content, model: job.model, voice: job.voice, format: job.format, speed: job.speed })
-        const audioPath = `${items[i].id}.${job.format}`
-        await storage.saveAudio(result.audio, result.format, items[i].id)
+        const audioPath = await storage.saveAudio(result.audio, result.format, items[i].id)
         await d.updateBatchItemStatus(items[i].id, 'completed', audioPath)
         await insertBatchGeneration(items[i].id, job.model, job.voice, items[i].text_content, audioPath, job.format, job.speed)
       } catch (e: any) {
@@ -153,7 +156,7 @@ async function processBatchNative(jobId: string) {
 async function insertBatchGeneration(id: string, model: string, voice: string, text: string, audioPath: string, format: string, speed: number) {
   try {
     await (await getDb()).insertGeneration(id, model, voice, text, audioPath, format, speed, null)
-  } catch {}
+  } catch (e) { console.error('insertBatchGeneration failed:', e) }
 }
 
 export async function getBatchStatus(jobId: string) {

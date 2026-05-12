@@ -1,6 +1,6 @@
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { isNative } from '../platform'
-import { base64ToBytes } from '../utils/audio'
+import { base64ToBytes, bytesToBase64 } from '../utils/audio'
 
 const AUDIO_DIR = 'audio_store'
 
@@ -83,11 +83,8 @@ export async function downloadApk(url: string, onProgress?: (percent: number) =>
   }
 
   const blob = new Blob(chunks as BlobPart[])
-  const arrayBuffer = await blob.arrayBuffer()
-  const bytes = new Uint8Array(arrayBuffer)
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-  const base64 = btoa(binary)
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  const base64 = bytesToBase64(bytes)
 
   const filename = 'TTS-Voxa-update.apk'
   await Filesystem.writeFile({

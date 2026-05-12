@@ -37,8 +37,8 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
   const wsRef = useRef<WaveSurfer | null>(null)
   const blobRef = useRef<Blob | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
+  const cancelAnimRef = useRef<(() => void) | null>(null)
 
-  // Enumerate audio input devices (web only, skip on native)
   useEffect(() => {
     if (isNative()) return
 
@@ -59,7 +59,6 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     enumDevices()
   }, [])
 
-  // Draw real-time waveform on canvas
   const drawWaveform = useCallback(() => {
     if (!canvasRef.current || !analyserRef.current) return
     const canvas = canvasRef.current
@@ -96,7 +95,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     draw()
   }, [])
 
-  // Draw animated bars for native (no real-time audio data available)
+  // Animated bars for native (no real-time audio data available)
   const drawNativeWaveform = useCallback(() => {
     if (!canvasRef.current) return
     const canvas = canvasRef.current
@@ -105,22 +104,25 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
     const bars = 40
     const barWidth = canvas.width / bars - 2
+    const supportsRoundRect = typeof ctx.roundRect === 'function'
     let phase = 0
+    let cancelled = false
 
     const draw = () => {
+      if (cancelled) return
       animFrameRef.current = requestAnimationFrame(draw)
       ctx.fillStyle = '#f8f9fc'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
 
       phase += 0.15
+      ctx.fillStyle = '#6366f1'
       for (let i = 0; i < bars; i++) {
         const h = (Math.sin(phase + i * 0.3) * 0.3 + 0.5) * canvas.height * 0.6
         const x = i * (barWidth + 2)
         const y = (canvas.height - h) / 2
 
-        ctx.fillStyle = '#6366f1'
         ctx.beginPath()
-        if (ctx.roundRect) {
+        if (supportsRoundRect) {
           ctx.roundRect(x, y, barWidth, h, 2)
         } else {
           ctx.rect(x, y, barWidth, h)
@@ -129,6 +131,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
       }
     }
     draw()
+    return () => { cancelled = true }
   }, [])
 
   // --- Native recording using custom TtsVoxaMicrophone plugin ---
@@ -164,7 +167,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         setDuration(d => d + 1)
       }, 1000)
 
-      drawNativeWaveform()
+      cancelAnimRef.current = drawNativeWaveform() ?? null
     } catch (e: any) {
       setState('idle')
       setError(e.message || '录音启动失败')
@@ -180,9 +183,8 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         clearInterval(timerRef.current)
         timerRef.current = null
       }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current)
-      }
+      if (cancelAnimRef.current) { cancelAnimRef.current(); cancelAnimRef.current = null }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
 
       if (result.base64) {
         const bytes = base64ToBytes(result.base64)
@@ -192,14 +194,12 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
 
       setState('recorded')
     } catch (e: any) {
-      // Always clean up state even on error
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
       }
-      if (animFrameRef.current) {
-        cancelAnimationFrame(animFrameRef.current)
-      }
+      if (cancelAnimRef.current) { cancelAnimRef.current(); cancelAnimRef.current = null }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
       setState('idle')
       setError(e.message || '录音停止失败')
     }
@@ -300,7 +300,6 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     setState('recorded')
   }
 
-  // Unified start/stop
   const startRecording = () => isNative() ? startRecordingNative() : startRecordingWeb()
   const stopRecording = () => isNative() ? stopRecordingNative() : stopRecordingWeb()
 
@@ -331,10 +330,10 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     setDuration(0)
   }
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      if (cancelAnimRef.current) cancelAnimRef.current()
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop())
       if (audioContextRef.current) audioContextRef.current.close()

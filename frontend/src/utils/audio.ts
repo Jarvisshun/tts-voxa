@@ -1,6 +1,7 @@
 export async function blobToWavFile(blob: Blob, filename: string = 'recording.wav'): Promise<File> {
-  const audioContext = new AudioContext()
+  let audioContext: AudioContext | null = null
   try {
+    audioContext = new AudioContext()
     const arrayBuffer = await blob.arrayBuffer()
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
 
@@ -55,7 +56,7 @@ export async function blobToWavFile(blob: Blob, filename: string = 'recording.wa
     const ext = blob.type.includes('aac') || blob.type.includes('mp4') ? 'm4a' : 'wav'
     return new File([blob], filename.replace('.wav', `.${ext}`), { type: blob.type || 'audio/wav' })
   } finally {
-    await audioContext.close()
+    if (audioContext) await audioContext.close()
   }
 }
 
@@ -80,6 +81,12 @@ export function bytesToBase64(bytes: Uint8Array): string {
     binary += String.fromCharCode(...chunk)
   }
   return btoa(binary)
+}
+
+export function dataUrlToBase64(dataUrl: string): { base64: string; format: string } | null {
+  const match = dataUrl.match(/^data:audio\/([^;]+);base64,(.+)$/)
+  if (!match) return null
+  return { format: match[1], base64: match[2] }
 }
 
 export function formatSeconds(s: number): string {

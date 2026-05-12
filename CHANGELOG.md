@@ -1,5 +1,76 @@
 # Changelog
 
+## v2.2.3 (2026-05-12)
+
+### Bug Fixes
+- **Native cloneSave**: Fixed audio file not being written to storage on Android
+- **Native batch processing**: Fixed `saveAudio` return value being discarded, causing "audio not found" errors
+- **getRecentTasks**: Fixed SQL query referencing non-existent `status` column on native
+- **BatchProcess**: Fixed stale closure in `loadNativeAudioUrl` dedup check
+- **blobToWavFile**: Added guard for `AudioContext` creation failure on Android WebView
+- **Backend audio path**: Unified `audio_dir` path between `main.py` and `config.py` (fixes exe mode)
+
+### Security
+- Moved Android keystore passwords from `build.gradle` to `local.properties` (gitignored)
+- Removed `.claude/settings.json` API key fallback from backend config
+- Restricted CORS from `allow_origins=["*"]` to localhost only
+- Added Pydantic input validation to voices save endpoint
+- Changed dev server binding from `0.0.0.0` to `127.0.0.1`
+
+### Code Quality
+- Refactored `batch.py` to use FastAPI `Depends(get_db)` instead of direct DB connections
+- Fixed `active_jobs` memory leak with `finally` block cleanup
+- Replaced silent `catch {}` blocks with error logging
+- Removed unused `react-router-dom` dependency (~40KB bundle savings)
+- Removed dead code: `VoiceSaveRequest` schema, `mimo_client` singleton
+- Extracted `dataUrlToBase64` to shared `utils/audio.ts`
+- Used existing `bytesToBase64` instead of manual byte-by-byte encoding
+- Fixed animation frame leak in `drawNativeWaveform`
+- Optimized canvas rendering (hoisted `roundRect` check and `fillStyle`)
+- Fixed polling interval feedback loop in `TaskContext`
+
+### Engineering
+- Unified version to single source of truth (`VERSION` file)
+- Updated CHANGELOG for v2.2.0-v2.2.3
+
+## v2.2.2 (2026-05-12)
+
+### Bug Fixes
+- Fixed download buttons on all pages (TTS, Clone, Design, Batch, History)
+- Fixed mobile recording: replaced `getUserMedia` with native `TtsVoxaMicrophone` Capacitor plugin
+- Fixed task panel polling interval thrashing
+- Fixed desktop exe static file path resolution
+
+### Code Review
+- Applied code review fixes: null guards, memory leak prevention, deduplication
+
+## v2.2.1 (2026-05-12)
+
+### Bug Fixes
+- Fixed PCM audio format handling for all models
+- Fixed history playback on Android
+- Fixed audio recording bugs
+- Applied code review fixes: null guards, memory leak prevention
+
+## v2.2.0 (2026-05-11)
+
+### New Features
+- **Android App**: Full Capacitor-based Android app with local TTS, voice clone, voice design, batch processing
+- **Auto-Update Banner**: Settings page shows update notification when new version is available on GitHub
+- **In-App APK Download**: Android app downloads and installs updates directly
+
+### Bug Fixes
+- Fixed Android recording with custom native microphone plugin (replaced broken Capacitor microphone)
+- Fixed API URL resolution on Android
+- Fixed history playback on Android
+- Fixed PCM audio format for MiMo TTS API
+
+### Architecture
+- Platform-aware API client (`isNative()` branching in `client.ts`)
+- TypeScript MiMo API client for direct API calls on Android
+- Capacitor SQLite database layer
+- Capacitor Filesystem for audio storage
+
 ## v2.1.0 (2026-05-11)
 
 ### New Features

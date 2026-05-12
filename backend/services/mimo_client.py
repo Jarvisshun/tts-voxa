@@ -183,6 +183,3 @@ async def get_client_for_provider(db) -> MiMoClient:
     if provider:
         return MiMoClient(api_key=provider["api_key"], api_base=provider["api_base"])
     return MiMoClient()
-
-
-mimo_client = MiMoClient()

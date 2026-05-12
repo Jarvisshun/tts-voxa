@@ -34,9 +34,9 @@ class BatchCreateRequest(BaseModel):
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
 
 
-class VoiceSaveRequest(BaseModel):
-    name: str
-    type: str  # "clone" or "design"
+class VoiceCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    type: str = Field(..., pattern="^(clone|design)$")
     voice_id: Optional[str] = None
-    description: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=500)
     audio_path: Optional[str] = None

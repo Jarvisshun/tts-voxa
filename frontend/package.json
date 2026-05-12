@@ -19,7 +19,6 @@
     "jeep-sqlite": "^2.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^7.15.0",
     "tailwindcss": "^4.3.0",
     "wavesurfer.js": "^7.12.6"
   },

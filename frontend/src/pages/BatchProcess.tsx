@@ -117,7 +117,12 @@ export default function BatchProcess() {
 
   const loadNativeAudioUrl = async (jobId: string, itemIndex: number) => {
     const key = `${jobId}_${itemIndex}`
-    if (nativeAudioUrls[key]) return nativeAudioUrls[key]
+    let cached = ''
+    setNativeAudioUrls(prev => {
+      if (prev[key]) cached = prev[key]
+      return prev
+    })
+    if (cached) return cached
     try {
       const url = await getBatchItemAudioDataUrl(jobId, itemIndex)
       setNativeAudioUrls(prev => ({ ...prev, [key]: url }))

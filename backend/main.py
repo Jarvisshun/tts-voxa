@@ -11,8 +11,9 @@ import threading
 import httpx
 import time
 
-from routers import tts, clone, design, batch, voices, history, config
+from routers import tts, clone, design, batch, voices, history, config as config_router
 from models.database import init_db
+from utils.config import AUDIO_STORE_PATH
 
 try:
     import webview
@@ -39,13 +40,33 @@ def get_base_dir():
 BASE_DIR = get_base_dir()
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 
-__version__ = "2.2.3"
+def _read_version():
+    try:
+        # When frozen (PyInstaller), read from bundled VERSION file
+        if getattr(sys, "frozen", False):
+            base = getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+            vfile = os.path.join(base, "VERSION")
+        else:
+            vfile = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "VERSION")
+        with open(vfile) as f:
+            return f.read().strip()
+    except Exception:
+        return "0.0.0"
+
+__version__ = _read_version()
 
 app = FastAPI(title="TTS Voxa", version=__version__)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        f"http://localhost:{p}" for p in range(8000, 8021)
+    ] + [
+        f"http://127.0.0.1:{p}" for p in range(8000, 8021)
+    ] + [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -57,9 +78,9 @@ app.include_router(design.router, prefix="/api/design", tags=["Voice Design"])
 app.include_router(batch.router, prefix="/api/batch", tags=["Batch"])
 app.include_router(voices.router, prefix="/api/voices", tags=["Voices"])
 app.include_router(history.router, prefix="/api/history", tags=["History"])
-app.include_router(config.router, prefix="/api/config", tags=["Config"])
+app.include_router(config_router.router, prefix="/api/config", tags=["Config"])
 
-audio_dir = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), "audio_store")
+audio_dir = AUDIO_STORE_PATH
 os.makedirs(audio_dir, exist_ok=True)
 app.mount("/audio", StaticFiles(directory=audio_dir), name="audio")
 
@@ -190,7 +211,7 @@ def find_free_port(start=8000, end=8020):
     for port in range(start, end):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.bind(("0.0.0.0", port))
+                s.bind(("127.0.0.1", port))
                 return port
             except OSError:
                 continue
@@ -254,7 +275,7 @@ if __name__ == "__main__":
                     target=lambda: (time.sleep(2), webbrowser.open(f"http://localhost:{port}")),
                     daemon=True,
                 ).start()
-            uvicorn.run(app, host="0.0.0.0", port=port, reload=False)
+            uvicorn.run(app, host="127.0.0.1", port=port, reload=False)
     except Exception as e:
         print(f"\nError: {e}")
         input("Press Enter to exit...")

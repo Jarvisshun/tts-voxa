@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from services.mimo_client import get_client_for_provider
 from utils.audio import save_audio, read_audio_to_base64, get_audio_format
-from utils.config import MAX_FILE_SIZE
+from utils.config import MAX_FILE_SIZE, AUDIO_STORE_PATH
 from models.database import get_db
 import uuid
 import os
@@ -64,10 +64,10 @@ async def save_clone_voice(
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(status_code=413, detail="Audio file too large (max 10MB)")
 
-    os.makedirs("audio_store", exist_ok=True)
+    os.makedirs(AUDIO_STORE_PATH, exist_ok=True)
     voice_id = f"voice_{uuid.uuid4().hex[:12]}"
     fmt = get_audio_format(audio.filename or "audio.wav")
-    filepath = f"audio_store/{voice_id}.{fmt}"
+    filepath = os.path.join(AUDIO_STORE_PATH, f"{voice_id}.{fmt}")
 
     with open(filepath, "wb") as f:
         f.write(content)

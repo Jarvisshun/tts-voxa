@@ -111,8 +111,9 @@ async def delete_generation(generation_id: str):
         if audio_path and os.path.exists(audio_path):
             try:
                 os.remove(audio_path)
-            except:
-                pass
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"Failed to delete audio file {audio_path}: {e}")
 
         await db.execute("DELETE FROM generations WHERE id = ?", (generation_id,))
         await db.commit()

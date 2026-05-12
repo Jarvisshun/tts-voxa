@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
-import { formatSeconds } from '../utils/audio'
+import { formatSeconds, dataUrlToBase64, bytesToBase64 } from '../utils/audio'
 import { isNative } from '../platform'
 
 interface WaveformPlayerProps {
@@ -19,12 +19,6 @@ const WS_OPTIONS = {
   barRadius: 2,
   normalize: true,
 } as const
-
-function dataUrlToBase64(dataUrl: string): { base64: string; format: string } | null {
-  const match = dataUrl.match(/^data:audio\/([^;]+);base64,(.+)$/)
-  if (!match) return null
-  return { format: match[1], base64: match[2] }
-}
 
 export default function WaveformPlayer({ audioSrc, height = 48, showDownload = false, downloadFilename = 'audio.wav' }: WaveformPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -83,34 +77,21 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     setDownloading(true)
     try {
       if (isNative()) {
-        // On native Android: save to filesystem using Capacitor
         const { Filesystem, Directory } = await import('@capacitor/filesystem')
+        const writeToCacheAndOpen = async (base64: string) => {
+          await Filesystem.writeFile({ path: downloadFilename, data: base64, directory: Directory.Cache })
+          const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
+          window.open(uri.uri, '_system')
+        }
         const parsed = dataUrlToBase64(audioSrc)
         if (parsed) {
-          await Filesystem.writeFile({
-            path: downloadFilename,
-            data: parsed.base64,
-            directory: Directory.Cache,
-          })
-          const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
-          // Open with system intent to save/share
-          window.open(uri.uri, '_system')
+          await writeToCacheAndOpen(parsed.base64)
         } else {
           const resp = await fetch(audioSrc)
           if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
           const blob = await resp.blob()
-          const arrayBuffer = await blob.arrayBuffer()
-          const bytes = new Uint8Array(arrayBuffer)
-          let binary = ''
-          for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
-          const base64 = btoa(binary)
-          await Filesystem.writeFile({
-            path: downloadFilename,
-            data: base64,
-            directory: Directory.Cache,
-          })
-          const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
-          window.open(uri.uri, '_system')
+          const bytes = new Uint8Array(await blob.arrayBuffer())
+          await writeToCacheAndOpen(bytesToBase64(bytes))
         }
       } else {
         // Desktop: fetch → blob → download via <a> click

@@ -175,7 +175,7 @@ export async function getRecentTasks(limit: number = 20): Promise<any[]> {
   try {
     const d = await getDb()
     const res = await d.query(
-      `SELECT id, 'generation' as source, model as type, text_content as text_preview, status, created_at FROM generations ORDER BY created_at DESC LIMIT ?`,
+      `SELECT id, 'generation' as source, model as type, text_content as text_preview, 'completed' as status, created_at FROM generations ORDER BY created_at DESC LIMIT ?`,
       [limit]
     )
     return sanitizeRows(res.values)
