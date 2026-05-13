@@ -1,6 +1,6 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite'
 import { isNative } from '../platform'
-import { SCHEMA_SQL } from './schema'
+import { SCHEMA_SQL, MIGRATION_SQL } from './schema'
 
 const DB_NAME = 'tts_voxa'
 let db: SQLiteDBConnection | null = null
@@ -31,6 +31,10 @@ export async function initDatabase(): Promise<void> {
     await db.open()
     for (const sql of SCHEMA_SQL) {
       await db.execute(sql)
+    }
+    // Run migrations (ALTER TABLE — will fail silently if columns already exist)
+    for (const sql of MIGRATION_SQL) {
+      try { await db.execute(sql) } catch { /* column already exists */ }
     }
     initialized = true
   } catch (e) {
@@ -300,4 +304,62 @@ export async function getBatchItemAudioPath(jobId: string, itemIndex: number): P
     console.error('getBatchItemAudioPath error:', e)
     return null
   }
+}
+
+// === Sync helpers ===
+
+export async function upsertBatchJob(job: Record<string, unknown>): Promise<void> {
+  const d = await getDb()
+  await d.run(
+    `INSERT OR REPLACE INTO batch_jobs (id, user_id, name, status, total_items, completed_items, voice, model, format, speed, created_at, completed_at, updated_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [job.id, job.user_id, job.name, job.status, job.total_items, job.completed_items, job.voice, job.model, job.format, job.speed, job.created_at, job.completed_at, job.updated_at]
+  )
+}
+
+export async function upsertBatchItem(item: Record<string, unknown>): Promise<void> {
+  const d = await getDb()
+  await d.run(
+    `INSERT OR REPLACE INTO batch_items (id, user_id, job_id, item_index, text_content, status, audio_path, error_message, created_at, updated_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [item.id, item.user_id, item.job_id, item.item_index, item.text_content, item.status, item.audio_path, item.error_message, item.created_at, item.updated_at]
+  )
+}
+
+export async function upsertProvider(provider: Record<string, unknown>): Promise<void> {
+  const d = await getDb()
+  await d.run(
+    `INSERT OR REPLACE INTO providers (id, user_id, name, api_key, api_base, models, is_default, created_at, updated_at, synced)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+    [provider.id, provider.user_id, provider.name, provider.api_key, provider.api_base, provider.models, provider.is_default, provider.created_at, provider.updated_at]
+  )
+}
+
+export async function getAllBatchItems(): Promise<Record<string, unknown>[]> {
+  try {
+    const d = await getDb()
+    const res = await d.query('SELECT * FROM batch_items ORDER BY created_at DESC')
+    return sanitizeRows(res.values)
+  } catch (e) {
+    console.error('getAllBatchItems error:', e)
+    return []
+  }
+}
+
+export async function getUnsyncedRows(table: string): Promise<Record<string, unknown>[]> {
+  try {
+    const d = await getDb()
+    const res = await d.query(`SELECT * FROM ${table} WHERE synced = 0`)
+    return sanitizeRows(res.values)
+  } catch (e) {
+    console.error(`getUnsyncedRows(${table}) error:`, e)
+    return []
+  }
+}
+
+export async function markSynced(table: string, ids: string[]): Promise<void> {
+  if (!ids.length) return
+  const d = await getDb()
+  const placeholders = ids.map(() => '?').join(',')
+  await d.run(`UPDATE ${table} SET synced = 1 WHERE id IN (${placeholders})`, ids)
 }

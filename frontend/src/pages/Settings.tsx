@@ -3,6 +3,9 @@ import { getVersion, checkUpdate } from '../api/client'
 import type { UpdateInfo } from '../api/client'
 import { isNative } from '../platform'
 import UpdateLog from './UpdateLog'
+import { initSupabase, signUp, signIn, signInWithMagicLink, signOut, getCurrentUser, onAuthStateChange } from '../api/supabase'
+import { syncAll } from '../db/sync'
+import type { User } from '@supabase/supabase-js'
 
 interface Provider {
   id: string
@@ -41,8 +44,35 @@ export default function Settings() {
   const [showApiKey, setShowApiKey] = useState(false)
   const [showUpdateLog, setShowUpdateLog] = useState(false)
 
+  // Cloud sync state
+  const [supabaseUrl, setSupabaseUrl] = useState(() => localStorage.getItem('supabase_url') || '')
+  const [supabaseKey, setSupabaseKey] = useState(() => localStorage.getItem('supabase_key') || '')
+  const [supabaseConnected, setSupabaseConnected] = useState(false)
+  const [authUser, setAuthUser] = useState<User | null>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authMode, setAuthMode] = useState<'login' | 'register' | 'magic'>('login')
+  const [authError, setAuthError] = useState<string | null>(null)
+  const [authLoading, setAuthLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
+  const [showSupabaseConfig, setShowSupabaseConfig] = useState(false)
+  const [showAuthPassword, setShowAuthPassword] = useState(false)
+
   useEffect(() => {
     getVersion().then(d => setCurrentVersion(d.version)).catch(() => {})
+  }, [])
+
+  // Initialize Supabase on mount if config exists
+  useEffect(() => {
+    const url = localStorage.getItem('supabase_url')
+    const key = localStorage.getItem('supabase_key')
+    if (url && key) {
+      initSupabase(url, key)
+      setSupabaseConnected(true)
+      getCurrentUser().then(setAuthUser)
+      const unsub = onAuthStateChange(setAuthUser)
+      return unsub
+    }
   }, [])
 
   const handleCheckUpdate = async () => {
@@ -89,6 +119,65 @@ export default function Settings() {
   }
 
   useEffect(() => { fetchProviders() }, [])
+
+  const handleConnectSupabase = () => {
+    if (!supabaseUrl.trim() || !supabaseKey.trim()) return
+    localStorage.setItem('supabase_url', supabaseUrl.trim())
+    localStorage.setItem('supabase_key', supabaseKey.trim())
+    initSupabase(supabaseUrl.trim(), supabaseKey.trim())
+    setSupabaseConnected(true)
+    getCurrentUser().then(setAuthUser)
+    const unsub = onAuthStateChange(setAuthUser)
+    return unsub
+  }
+
+  const handleDisconnectSupabase = () => {
+    localStorage.removeItem('supabase_url')
+    localStorage.removeItem('supabase_key')
+    setSupabaseConnected(false)
+    setAuthUser(null)
+    setSupabaseUrl('')
+    setSupabaseKey('')
+  }
+
+  const handleAuth = async () => {
+    if (!authEmail.trim() || (authMode !== 'magic' && !authPassword.trim())) return
+    setAuthLoading(true)
+    setAuthError(null)
+    try {
+      if (authMode === 'register') {
+        const { user, error } = await signUp(authEmail.trim(), authPassword)
+        if (error) { setAuthError(error); return }
+        if (user) setAuthUser(user)
+      } else if (authMode === 'login') {
+        const { user, error } = await signIn(authEmail.trim(), authPassword)
+        if (error) { setAuthError(error); return }
+        if (user) setAuthUser(user)
+      } else {
+        const { error } = await signInWithMagicLink(authEmail.trim())
+        if (error) { setAuthError(error); return }
+        setAuthError('已发送登录链接到邮箱，请查收')
+      }
+      setAuthEmail(''); setAuthPassword('')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '操作失败'
+      setAuthError(msg)
+    } finally { setAuthLoading(false) }
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    setAuthUser(null)
+  }
+
+  const handleSync = async () => {
+    setSyncing(true)
+    try {
+      await syncAll()
+    } catch (e) {
+      console.error('Sync failed:', e)
+    } finally { setSyncing(false) }
+  }
 
   const parseModels = (): ModelEntry[] => {
     return modelsText.split(',').map(s => s.trim()).filter(Boolean).map(id => ({ id, name: id, type: 'basic' }))
@@ -178,6 +267,143 @@ export default function Settings() {
 
   return (
     <div className="space-y-4">
+      {/* Cloud Sync Section */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-semibold text-gray-700">云端同步</h2>
+          {supabaseConnected && (
+            <button
+              onClick={() => setShowSupabaseConfig(!showSupabaseConfig)}
+              className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              {showSupabaseConfig ? '收起' : '配置'}
+            </button>
+          )}
+        </div>
+
+        {!supabaseConnected ? (
+          <div>
+            <p className="text-xs text-gray-400 mb-4">连接 Supabase 以启用跨设备数据同步。数据将端到端加密存储。</p>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Supabase URL</label>
+                <input value={supabaseUrl} onChange={e => setSupabaseUrl(e.target.value)} placeholder="https://xxx.supabase.co" className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all" />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Anon Key</label>
+                <input type="password" value={supabaseKey} onChange={e => setSupabaseKey(e.target.value)} placeholder="eyJ..." className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all" />
+              </div>
+            </div>
+            <button
+              onClick={handleConnectSupabase}
+              disabled={!supabaseUrl.trim() || !supabaseKey.trim()}
+              className="mt-4 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200"
+            >
+              连接
+            </button>
+          </div>
+        ) : (
+          <div>
+            {showSupabaseConfig && (
+              <div className="mb-4 pb-4 border-b border-gray-100">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-400">已连接: {supabaseUrl}</span>
+                  <button onClick={handleDisconnectSupabase} className="text-xs text-red-400 hover:text-red-600 transition-colors">断开连接</button>
+                </div>
+              </div>
+            )}
+
+            {!authUser ? (
+              <div>
+                <div className="flex gap-1.5 mb-4">
+                  {(['login', 'register', 'magic'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => { setAuthMode(mode); setAuthError(null) }}
+                      className={`px-3 py-1.5 text-[11px] rounded-lg font-medium transition-all ${
+                        authMode === mode ? 'bg-indigo-50 text-indigo-600 border border-indigo-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      }`}
+                    >
+                      {mode === 'login' ? '登录' : mode === 'register' ? '注册' : '邮箱链接'}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                  <input
+                    value={authEmail}
+                    onChange={e => setAuthEmail(e.target.value)}
+                    placeholder="邮箱地址"
+                    type="email"
+                    className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all"
+                  />
+                  {authMode !== 'magic' && (
+                    <div className="relative">
+                      <input
+                        value={authPassword}
+                        onChange={e => setAuthPassword(e.target.value)}
+                        placeholder="密码"
+                        type={showAuthPassword ? 'text' : 'password'}
+                        className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 pr-10 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none transition-all"
+                        onKeyDown={e => e.key === 'Enter' && handleAuth()}
+                      />
+                      <button type="button" onClick={() => setShowAuthPassword(!showAuthPassword)} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                        {showAuthPassword ? (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.451 10.451 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.522 10.522 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {authError && (
+                  <p className={`mt-2 text-xs ${authError.includes('已发送') ? 'text-emerald-500' : 'text-red-500'}`}>{authError}</p>
+                )}
+                <button
+                  onClick={handleAuth}
+                  disabled={authLoading || !authEmail.trim() || (authMode !== 'magic' && !authPassword.trim())}
+                  className="mt-4 px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200"
+                >
+                  {authLoading ? '处理中...' : authMode === 'login' ? '登录' : authMode === 'register' ? '注册' : '发送链接'}
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">{authUser.email}</div>
+                    <div className="text-xs text-gray-400 mt-0.5">已登录</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSync}
+                      disabled={syncing}
+                      className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-gray-200 disabled:text-gray-400 rounded-xl text-sm font-medium text-white transition-all shadow-sm shadow-indigo-200 flex items-center gap-1.5"
+                    >
+                      {syncing ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                          同步中...
+                        </>
+                      ) : '立即同步'}
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm text-gray-500 transition-all"
+                    >
+                      退出登录
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Add/Edit Form */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">

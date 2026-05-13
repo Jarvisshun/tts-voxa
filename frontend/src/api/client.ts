@@ -1,5 +1,6 @@
 import { isNative, APP_VERSION } from '../platform'
 import type { TTSRequest, TTSResponse, VoiceDesignRequest, BatchCreateRequest, UpdateInfo, BatchJobStatus, HistoryItem, TaskItem, Provider, ModelConfig } from './types'
+import { scheduleBackgroundSync } from '../db/sync'
 
 // Dynamic imports for native-only modules (avoids loading Capacitor plugins on desktop)
 let _mimoApi: typeof import('./mimoApi') | null = null
@@ -36,7 +37,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export async function synthesizeTTS(req: TTSRequest): Promise<TTSResponse> {
-  if (isNative()) return (await getMimoApi()).synthesizeAndSave(req)
+  if (isNative()) {
+    const result = await (await getMimoApi()).synthesizeAndSave(req)
+    scheduleBackgroundSync()
+    return result
+  }
   return request('/tts/synthesize', { method: 'POST', body: JSON.stringify(req) })
 }
 
@@ -69,7 +74,9 @@ export async function cloneSynthesize(
   if (isNative()) {
     const base64 = await fileToBase64(audioFile)
     const audioFormat = audioFile.name.split('.').pop() || 'wav'
-    return (await getMimoApi()).cloneAndSave(base64, audioFormat, text, format, emotion)
+    const result = await (await getMimoApi()).cloneAndSave(base64, audioFormat, text, format, emotion)
+    scheduleBackgroundSync()
+    return result
   }
   const form = new FormData()
   form.append('audio', audioFile)
@@ -96,6 +103,7 @@ export async function cloneSave(
     const { saveAudio } = await import('../storage/audioStorage')
     const audioPath = await saveAudio(base64, format, voiceId)
     await saveVoice(voiceId, name, 'clone', voiceId, '', audioPath)
+    scheduleBackgroundSync()
     return { success: true, data: { voice_id: voiceId, name } }
   }
   const form = new FormData()
@@ -107,7 +115,11 @@ export async function cloneSave(
 }
 
 export async function designVoice(req: VoiceDesignRequest): Promise<TTSResponse> {
-  if (isNative()) return (await getMimoApi()).designAndSave(req)
+  if (isNative()) {
+    const result = await (await getMimoApi()).designAndSave(req)
+    scheduleBackgroundSync()
+    return result
+  }
   return request('/design/generate', { method: 'POST', body: JSON.stringify(req) })
 }
 
@@ -116,6 +128,7 @@ export async function createBatch(req: BatchCreateRequest) {
     const d = await getDb()
     const result = await d.createBatchJob(req.name, req.texts, req.voice || 'mimo_default', req.model || 'mimo-v2.5-tts', req.format || 'wav', req.speed || 1.0)
     processBatchNative(result.job_id)
+    scheduleBackgroundSync()
     return { success: true, data: result }
   }
   return request<{ success: boolean; data: { job_id: string; total_items: number } }>(
@@ -269,6 +282,7 @@ export async function getProviders() {
 export async function addProvider(name: string, apiKey: string, apiBase: string, models: ModelConfig[], isDefault: boolean) {
   if (isNative()) {
     await (await getDb()).addProvider(name, apiKey, apiBase, models, isDefault)
+    scheduleBackgroundSync()
     return { success: true }
   }
   return request<{ success: boolean }>('/config/providers', {
@@ -280,6 +294,7 @@ export async function addProvider(name: string, apiKey: string, apiBase: string,
 export async function updateProvider(id: string, name: string, apiKey: string, apiBase: string, models: ModelConfig[], isDefault: boolean) {
   if (isNative()) {
     await (await getDb()).updateProvider(id, name, apiKey, apiBase, models, isDefault)
+    scheduleBackgroundSync()
     return { success: true }
   }
   return request<{ success: boolean }>(`/config/providers/${id}`, {
@@ -291,6 +306,7 @@ export async function updateProvider(id: string, name: string, apiKey: string, a
 export async function deleteProvider(id: string) {
   if (isNative()) {
     await (await getDb()).deleteProvider(id)
+    scheduleBackgroundSync()
     return { success: true }
   }
   return request<{ success: boolean }>(`/config/providers/${id}`, { method: 'DELETE' })

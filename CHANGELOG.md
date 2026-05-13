@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.3.0 (2026-05-13)
+
+### New Features
+- **Cloud Sync**: Supabase-powered cross-device data synchronization
+  - Email login/register/magic link authentication
+  - Offline-first sync engine — local SQLite primary, background push/pull to Supabase
+  - Row-Level Security (RLS) — users can only access their own data
+  - Audio files encrypted with AES-GCM-256 before upload (end-to-end encryption)
+  - API keys encrypted client-side before storage
+  - Configurable Supabase URL and anon key in Settings
+  - Manual sync button + automatic sync after writes
+- **Local DB Schema Upgrade**: Added `user_id`, `updated_at`, `synced` columns to all tables with automatic migration
+
+### Dependencies
+- Added `@supabase/supabase-js` (~50KB gzipped)
+
 ## v2.2.5 (2026-05-13)
 
 ### Bug Fixes

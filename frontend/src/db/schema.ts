@@ -1,15 +1,19 @@
 export const SCHEMA_SQL = [
   `CREATE TABLE IF NOT EXISTS voices (
     id TEXT PRIMARY KEY,
+    user_id TEXT,
     name TEXT NOT NULL,
     type TEXT NOT NULL,
     voice_id TEXT,
     description TEXT,
     audio_path TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced INTEGER DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS generations (
     id TEXT PRIMARY KEY,
+    user_id TEXT,
     model TEXT NOT NULL,
     voice TEXT,
     text_content TEXT NOT NULL,
@@ -18,10 +22,13 @@ export const SCHEMA_SQL = [
     speed REAL DEFAULT 1.0,
     emotion TEXT,
     duration REAL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced INTEGER DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS batch_jobs (
     id TEXT PRIMARY KEY,
+    user_id TEXT,
     name TEXT NOT NULL,
     status TEXT DEFAULT 'pending',
     total_items INTEGER,
@@ -31,10 +38,13 @@ export const SCHEMA_SQL = [
     format TEXT DEFAULT 'wav',
     speed REAL DEFAULT 1.0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    completed_at DATETIME
+    completed_at DATETIME,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced INTEGER DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS batch_items (
     id TEXT PRIMARY KEY,
+    user_id TEXT,
     job_id TEXT NOT NULL,
     item_index INTEGER NOT NULL,
     text_content TEXT NOT NULL,
@@ -42,15 +52,39 @@ export const SCHEMA_SQL = [
     audio_path TEXT,
     error_message TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced INTEGER DEFAULT 0,
     FOREIGN KEY (job_id) REFERENCES batch_jobs(id)
   )`,
   `CREATE TABLE IF NOT EXISTS providers (
     id TEXT PRIMARY KEY,
+    user_id TEXT,
     name TEXT NOT NULL,
     api_key TEXT NOT NULL,
     api_base TEXT NOT NULL,
     models TEXT NOT NULL DEFAULT '[]',
     is_default INTEGER DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    synced INTEGER DEFAULT 0
   )`,
+]
+
+// Migration: add user_id, updated_at, synced columns to existing tables
+export const MIGRATION_SQL = [
+  `ALTER TABLE voices ADD COLUMN user_id TEXT`,
+  `ALTER TABLE voices ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE voices ADD COLUMN synced INTEGER DEFAULT 0`,
+  `ALTER TABLE generations ADD COLUMN user_id TEXT`,
+  `ALTER TABLE generations ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE generations ADD COLUMN synced INTEGER DEFAULT 0`,
+  `ALTER TABLE batch_jobs ADD COLUMN user_id TEXT`,
+  `ALTER TABLE batch_jobs ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE batch_jobs ADD COLUMN synced INTEGER DEFAULT 0`,
+  `ALTER TABLE batch_items ADD COLUMN user_id TEXT`,
+  `ALTER TABLE batch_items ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE batch_items ADD COLUMN synced INTEGER DEFAULT 0`,
+  `ALTER TABLE providers ADD COLUMN user_id TEXT`,
+  `ALTER TABLE providers ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
+  `ALTER TABLE providers ADD COLUMN synced INTEGER DEFAULT 0`,
 ]
