@@ -1,2 +1,0 @@
-const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-Ch27bj5k.js","assets/dist-DDX07BT9.js"])))=>i.map(i=>d[i]);
-import{r as e}from"./dist-DDX07BT9.js";import{t}from"./preload-helper-rov5CBGT.js";var n;(function(e){e.prompt=`prompt`,e.promptWithRationale=`prompt-with-rationale`,e.granted=`granted`,e.denied=`denied`,e.limited=`limited`})(n||={});var r=e(`Microphone`,{web:()=>t(()=>import(`./web-Ch27bj5k.js`).then(e=>new e.MicrophoneWeb),__vite__mapDeps([0,1]))});export{r as Microphone,n as MicrophonePermissionStateValue};

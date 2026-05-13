@@ -29,6 +29,22 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
+# SQLCipher native library
+-keep class net.sqlcipher.** { *; }
+-keep class net.sqlcipher.database.** { *; }
+-dontwarn net.sqlcipher.**
+
+# AndroidX Room (used by capacitor-community-sqlite)
+-keep class * extends androidx.room.RoomDatabase { *; }
+-keep @androidx.room.Entity class * { *; }
+-dontwarn androidx.room.**
+
+# AndroidX Security Crypto
+-dontwarn androidx.security.crypto.**
+
+# AndroidX Biometric
+-dontwarn androidx.biometric.**
+
 # Suppress warnings for missing annotations
 -dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
 -dontwarn com.google.errorprone.annotations.CheckReturnValue
