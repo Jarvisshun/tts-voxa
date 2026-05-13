@@ -86,7 +86,10 @@ export async function encryptData(data: string, password: string): Promise<strin
   combined.set(salt, 0)
   combined.set(iv, salt.length)
   combined.set(new Uint8Array(encrypted), salt.length + iv.length)
-  return btoa(String.fromCharCode(...combined))
+  // Safe base64 encoding (avoids stack overflow on large data)
+  let binary = ''
+  for (let i = 0; i < combined.length; i++) binary += String.fromCharCode(combined[i])
+  return btoa(binary)
 }
 
 export async function decryptData(encryptedBase64: string, password: string): Promise<string> {
