@@ -1,4 +1,4 @@
-# Capacitor WebView rules
+# Capacitor core
 -keep class com.getcapacitor.** { *; }
 -keep class com.ttsvoxa.app.** { *; }
 -keep class org.apache.cordova.** { *; }
@@ -7,7 +7,20 @@
     @android.webkit.JavascriptInterface <methods>;
 }
 
-# Keep WebView JavaScript interfaces
+# Capacitor community plugins
+-keep class com.capacitorjs.community.** { *; }
+-keep class ee.forgr.capacitor_community_sqlite.** { *; }
+-keep class com.capacitorjs.plugins.** { *; }
+
+# Keep all Capacitor plugin annotations
+-keep @com.getcapacitor.annotation.CapacitorPlugin class * { *; }
+-keep @com.getcapacitor.annotation.Permission class * { *; }
+-keep @com.getcapacitor.annotation.PermissionCallback class * { *; }
+-keepclassmembers class * {
+    @com.getcapacitor.annotation.PluginMethod <methods>;
+}
+
+# WebView JavaScript interfaces
 -keepclassmembers class fqcn.of.javascript.interface.for.webview {
    public *;
 }
@@ -16,7 +29,7 @@
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# Google Tink crypto (referenced by AndroidX security)
+# Suppress warnings for missing annotations
 -dontwarn com.google.errorprone.annotations.CanIgnoreReturnValue
 -dontwarn com.google.errorprone.annotations.CheckReturnValue
 -dontwarn com.google.errorprone.annotations.Immutable
