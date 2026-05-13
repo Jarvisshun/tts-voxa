@@ -8,8 +8,7 @@ async function bootstrap() {
   if (isNative()) {
     // Register jeep-sqlite web component from local package (not CDN — CDN blocked in China)
     try {
-      const { applyPolyfills, defineCustomElements } = await import('jeep-sqlite/loader')
-      await applyPolyfills()
+      const { defineCustomElements } = await import('jeep-sqlite/loader')
       defineCustomElements(window)
       const el = document.createElement('jeep-sqlite')
       el.style.cssText = 'position:absolute;display:block;width:0;height:0'
@@ -18,8 +17,13 @@ async function bootstrap() {
       console.warn('jeep-sqlite load failed:', e)
     }
 
-    const { initDatabase } = await import('./db/database')
-    await initDatabase()
+    // Must not prevent React from mounting if DB init fails
+    try {
+      const { initDatabase } = await import('./db/database')
+      await initDatabase()
+    } catch (e) {
+      console.error('Database init failed, app will run without local DB:', e)
+    }
   }
   createRoot(document.getElementById('root')!).render(
     <StrictMode>

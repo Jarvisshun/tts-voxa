@@ -77,24 +77,26 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     setDownloading(true)
     try {
       if (isNative()) {
+        // Android: save to Documents then open system share sheet
         const { Filesystem, Directory } = await import('@capacitor/filesystem')
-        const writeToCacheAndOpen = async (base64: string) => {
-          await Filesystem.writeFile({ path: downloadFilename, data: base64, directory: Directory.Cache })
-          const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
-          window.open(uri.uri, '_system')
-        }
-        const parsed = dataUrlToBase64(audioSrc)
-        if (parsed) {
-          await writeToCacheAndOpen(parsed.base64)
-        } else {
+        const { Share } = await import('@capacitor/share')
+        const getBase64 = async (): Promise<string> => {
+          const parsed = dataUrlToBase64(audioSrc)
+          if (parsed) return parsed.base64
           const resp = await fetch(audioSrc)
           if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
           const blob = await resp.blob()
           const bytes = new Uint8Array(await blob.arrayBuffer())
-          await writeToCacheAndOpen(bytesToBase64(bytes))
+          return bytesToBase64(bytes)
         }
+        const base64 = await getBase64()
+        await Filesystem.writeFile({ path: downloadFilename, data: base64, directory: Directory.Cache })
+        const uri = await Filesystem.getUri({ path: downloadFilename, directory: Directory.Cache })
+        await Share.share({ title: downloadFilename, url: uri.uri }).catch(() => {
+          // Share dismissed — still a success, file is saved
+        })
       } else {
-        // Desktop: fetch → blob → download via <a> click
+        // Desktop: fetch → blob → save via <a> download attribute
         const resp = await fetch(audioSrc)
         if (!resp.ok) throw new Error(`Download failed: ${resp.status}`)
         const blob = await resp.blob()
@@ -109,7 +111,6 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
       }
     } catch (e) {
       console.warn('Download failed, trying fallback:', e)
-      // Fallback: direct <a> download
       const a = document.createElement('a')
       a.href = audioSrc
       a.download = downloadFilename

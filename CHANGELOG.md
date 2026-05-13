@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.2.5 (2026-05-13)
+
+### Bug Fixes
+- **Android crash**: Fixed 5 root causes — removed broken `applyPolyfills`, wrapped `initDatabase` in try/catch, disabled SQLite encryption, added `base: './'` to Vite config
+- **Audio download**: Fixed download button on all platforms — Android now uses system share sheet via `@capacitor/share`, desktop uses blob download
+- **API key visibility**: Added eye icon toggle to show/hide API key in Settings (works on both desktop and mobile)
+
 ## v2.2.4 (2026-05-13)
 
 ### Bug Fixes

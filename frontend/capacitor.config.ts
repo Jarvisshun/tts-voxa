@@ -8,7 +8,9 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
-    CapacitorSQLite: {},
+    CapacitorSQLite: {
+      androidIsEncryption: false,
+    },
     Filesystem: {},
   },
 }
