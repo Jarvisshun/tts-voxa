@@ -3,6 +3,8 @@ import { cloneSynthesize, cloneSave } from '../api/client'
 import { useTasks } from '../contexts/TaskContext'
 import WaveformPlayer from '../components/WaveformPlayer'
 import AudioRecorder from '../components/AudioRecorder'
+import ErrorMessage from '../components/ErrorMessage'
+import FormatSelector from '../components/FormatSelector'
 
 export default function VoiceClone() {
   const [audioFile, setAudioFile] = useState<File | null>(null)
@@ -172,24 +174,7 @@ export default function VoiceClone() {
               className="w-full bg-gray-50/80 border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-400 focus:outline-none"
             />
           </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">输出格式</label>
-            <div className="flex gap-1.5">
-              {['wav', 'mp3'].map(f => (
-                <button
-                  key={f}
-                  onClick={() => setFormat(f)}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    format === f
-                      ? 'bg-indigo-500 text-white shadow-sm shadow-indigo-200'
-                      : 'bg-gray-100 text-gray-500 hover:text-gray-700 hover:bg-gray-200/70'
-                  }`}
-                >
-                  {f.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
+          <FormatSelector value={format} onChange={setFormat} options={['wav', 'mp3']} />
         </div>
       </div>
 
@@ -202,14 +187,7 @@ export default function VoiceClone() {
         {loading ? '正在合成...' : '克隆声音合成'}
       </button>
 
-      {error && (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-red-600 text-sm flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-          </svg>
-          {error}
-        </div>
-      )}
+      {error && <ErrorMessage message={error} />}
 
       {/* Result */}
       {audioSrc && (

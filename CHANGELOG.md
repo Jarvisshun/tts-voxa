@@ -1,5 +1,26 @@
 # Changelog
 
+## v2.3.1 (2026-05-14)
+
+### Bug Fixes
+- **Batch processing stuck**: Fixed `processBatchNative` getting stuck in 'running' when status is null — now marks as 'failed'
+- **Batch processing fire-and-forget**: Added `.catch()` to prevent unhandled promise rejection in background batch processing
+- **Auth subscription leak**: Fixed Supabase auth subscription not being cleaned up on component unmount
+- **Error swallowing**: Removed try-catch in `insertGeneration` that silently swallowed errors
+- **SQL injection prevention**: Added `VALID_TABLES` allowlist and `TableName` type to `getUnsyncedRows`/`markSynced`
+
+### Performance
+- **Conditional polling**: Task polling now only starts when active batch jobs exist (saves battery/CPU)
+- **Incremental sync**: Sync engine now only pushes unsynced rows instead of full tables
+- **Lazy audio loading**: History page loads audio on-demand per item instead of bulk eager loading
+- **Code splitting**: All 6 page components now use `React.lazy()` + `Suspense` for smaller initial bundle
+- **Memoized computation**: BatchProcess `texts` computation wrapped in `useMemo`
+
+### Code Quality
+- **Shared components**: Extracted `Spinner`, `ErrorMessage`, `ConfirmDeleteModal`, `SpeedSelector`, `FormatSelector` — replaced 18 inline duplicates across 8 files
+- **Type deduplication**: Removed duplicate `Provider`/`ModelEntry` interfaces from Settings.tsx, now imports from `types.ts`
+- **Outer catch safety**: Wrapped inner recovery logic in processBatchNative outer catch to prevent double-throw
+
 ## v2.3.0 (2026-05-13)
 
 ### New Features

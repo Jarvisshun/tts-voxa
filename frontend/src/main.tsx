@@ -24,21 +24,22 @@ async function bootstrap() {
     } catch (e) {
       console.error('Database init failed, app will run without local DB:', e)
     }
-
-    // Auto-sync with Supabase if configured
-    try {
-      const url = localStorage.getItem('supabase_url')
-      const key = localStorage.getItem('supabase_key')
-      if (url && key) {
-        const { initSupabase } = await import('./api/supabase')
-        initSupabase(url, key)
-        const { syncAll } = await import('./db/sync')
-        syncAll().catch(e => console.warn('Auto-sync failed:', e))
-      }
-    } catch (e) {
-      console.warn('Supabase init failed:', e)
-    }
   }
+
+  // Auto-sync with Supabase if configured (works on all platforms)
+  try {
+    const url = localStorage.getItem('supabase_url')
+    const key = localStorage.getItem('supabase_key')
+    if (url && key) {
+      const { initSupabase } = await import('./api/supabase')
+      initSupabase(url, key)
+      const { syncAll } = await import('./db/sync')
+      syncAll().catch(e => console.warn('Auto-sync failed:', e))
+    }
+  } catch (e) {
+    console.warn('Supabase init failed:', e)
+  }
+
   createRoot(document.getElementById('root')!).render(
     <StrictMode>
       <App />

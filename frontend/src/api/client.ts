@@ -127,7 +127,7 @@ export async function createBatch(req: BatchCreateRequest) {
   if (isNative()) {
     const d = await getDb()
     const result = await d.createBatchJob(req.name, req.texts, req.voice || 'mimo_default', req.model || 'mimo-v2.5-tts', req.format || 'wav', req.speed || 1.0)
-    processBatchNative(result.job_id)
+    processBatchNative(result.job_id).catch(e => console.error('Batch processing failed:', e))
     scheduleBackgroundSync()
     return { success: true, data: result }
   }
@@ -143,7 +143,10 @@ async function processBatchNative(jobId: string) {
     const storage = await getAudioStorage()
     await d.updateBatchJobStatus(jobId, 'running')
     const status = await d.getBatchJobStatus(jobId)
-    if (!status) return
+    if (!status) {
+      await d.updateBatchJobStatus(jobId, 'failed')
+      return
+    }
     const job = status
     const items = job.items || []
     for (let i = 0; i < items.length; i++) {
@@ -160,10 +163,13 @@ async function processBatchNative(jobId: string) {
       await new Promise(r => setTimeout(r, 0))
     }
     await d.updateBatchJobStatus(jobId, 'completed')
-  } catch {
-    // jobId is in scope, but we need db again
-    const d = await getDb()
-    await d.updateBatchJobStatus(jobId, 'failed')
+  } catch (outerErr) {
+    try {
+      const d = await getDb()
+      await d.updateBatchJobStatus(jobId, 'failed')
+    } catch (innerErr) {
+      console.error('Failed to mark batch job as failed:', innerErr)
+    }
   }
 }
 

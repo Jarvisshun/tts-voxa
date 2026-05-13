@@ -101,5 +101,25 @@ CREATE POLICY "Users can manage own providers" ON providers
   FOR ALL USING (user_id = auth.uid());
 
 -- Storage bucket for audio files
--- Run this separately in the Supabase dashboard Storage section:
--- Create bucket named "audio" with public access disabled
+-- Create bucket named "audio" with public access disabled in Supabase dashboard
+
+-- Storage RLS Policies (run after creating the "audio" bucket)
+-- Allow authenticated users to upload to their own folder
+CREATE POLICY "Users can upload own audio" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'audio' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Allow authenticated users to read their own audio
+CREATE POLICY "Users can read own audio" ON storage.objects
+  FOR SELECT TO authenticated
+  USING (bucket_id = 'audio' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Allow authenticated users to delete their own audio
+CREATE POLICY "Users can delete own audio" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'audio' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Allow authenticated users to update their own audio
+CREATE POLICY "Users can update own audio" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'audio' AND (storage.foldername(name))[1] = auth.uid()::text);

@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { createBatch, getBatchStatus, getBatchList, getBatchItemAudioUrl, getBatchItemAudioDataUrl, getPresets } from '../api/client'
 import { isNative } from '../platform'
 import { useTasks } from '../contexts/TaskContext'
 import WaveformPlayer from '../components/WaveformPlayer'
+import ErrorMessage from '../components/ErrorMessage'
+import SpeedSelector from '../components/SpeedSelector'
 
 interface VoiceItem {
   id: string
@@ -162,7 +164,7 @@ export default function BatchProcess() {
     } catch {}
   }
 
-  const texts = inputText.split('\n').map(t => t.trim()).filter(t => t.length > 0)
+  const texts = useMemo(() => inputText.split('\n').map(t => t.trim()).filter(t => t.length > 0), [inputText])
 
   return (
     <div className="space-y-4">
@@ -193,26 +195,7 @@ export default function BatchProcess() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                语速 <span className="text-indigo-500 normal-case font-medium">{speed.toFixed(1)}x</span>
-              </label>
-              <div className="flex gap-1">
-                {[0.75, 1.0, 1.25, 1.5].map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setSpeed(s)}
-                    className={`flex-1 py-2 rounded-lg text-[11px] font-medium transition-all ${
-                      Math.abs(speed - s) < 0.01
-                        ? 'bg-indigo-500 text-white shadow-sm'
-                        : 'bg-gray-100 text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    {s}x
-                  </button>
-                ))}
-              </div>
-            </div>
+            <SpeedSelector value={speed} onChange={setSpeed} />
           </div>
         </div>
 
@@ -238,14 +221,7 @@ export default function BatchProcess() {
         {loading ? '创建中...' : `开始批量合成 (${texts.length} 段)`}
       </button>
 
-      {error && (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-red-600 text-sm flex items-center gap-2">
-          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-          </svg>
-          {error}
-        </div>
-      )}
+      {error && <ErrorMessage message={error} />}
 
       {/* Active Job Progress */}
       {activeStatus && (

@@ -1,14 +1,15 @@
-import { useState, useEffect, Component, type ReactNode } from 'react'
+import { useState, useEffect, lazy, Suspense, Component, type ReactNode } from 'react'
 import { TaskProvider } from './contexts/TaskContext'
 import Sidebar from './components/Sidebar'
-import TTSWorkbench from './pages/TTSWorkbench'
-import VoiceClone from './pages/VoiceClone'
-import VoiceDesign from './pages/VoiceDesign'
-import BatchProcess from './pages/BatchProcess'
-import History from './pages/History'
-import Settings from './pages/Settings'
 import { checkUpdate } from './api/client'
 import type { UpdateInfo } from './api/client'
+
+const TTSWorkbench = lazy(() => import('./pages/TTSWorkbench'))
+const VoiceClone = lazy(() => import('./pages/VoiceClone'))
+const VoiceDesign = lazy(() => import('./pages/VoiceDesign'))
+const BatchProcess = lazy(() => import('./pages/BatchProcess'))
+const History = lazy(() => import('./pages/History'))
+const Settings = lazy(() => import('./pages/Settings'))
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
   state = { hasError: false, error: '' }
@@ -150,7 +151,11 @@ function App() {
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
           <main className="flex-1 overflow-y-auto p-6">
             <div className="max-w-5xl mx-auto">
-              <ErrorBoundary>{renderPage()}</ErrorBoundary>
+              <ErrorBoundary>
+                <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">加载中...</div>}>
+                  {renderPage()}
+                </Suspense>
+              </ErrorBoundary>
             </div>
           </main>
         </div>
@@ -188,7 +193,9 @@ function App() {
           )}
 
           <main className="flex-1 overflow-y-auto p-3 pb-20">
-            {renderPage()}
+            <Suspense fallback={<div className="text-center py-16 text-gray-400 text-sm">加载中...</div>}>
+              {renderPage()}
+            </Suspense>
           </main>
 
           {/* Bottom tab bar */}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import { formatSeconds, dataUrlToBase64, bytesToBase64 } from '../utils/audio'
 import { isNative } from '../platform'
+import Spinner from './Spinner'
 
 interface WaveformPlayerProps {
   audioSrc: string
@@ -38,7 +39,8 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
       ...WS_OPTIONS,
     })
 
-    ws.load(audioSrc)
+    // Catch the load promise to suppress AbortError on StrictMode unmount
+    ws.load(audioSrc).catch(() => {})
 
     ws.on('ready', () => {
       setReady(true)
@@ -58,13 +60,15 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
     ws.on('pause', () => setPlaying(false))
 
     ws.on('error', (err: any) => {
+      // Suppress AbortError from StrictMode double-mount cleanup
+      if (err?.name === 'AbortError') return
       console.warn('WaveformPlayer error:', err)
     })
 
     wsRef.current = ws
 
     return () => {
-      ws.destroy()
+      try { ws.destroy() } catch { /* ignore AbortError from StrictMode remount */ }
       wsRef.current = null
     }
   }, [audioSrc, height])
@@ -152,7 +156,7 @@ export default function WaveformPlayer({ audioSrc, height = 48, showDownload = f
           className="shrink-0 text-gray-400 hover:text-indigo-500 disabled:text-gray-200 transition-colors"
         >
           {downloading ? (
-            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+            <Spinner />
           ) : (
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { getHistory, getAudioDataUrlForHistory, deleteHistory } from '../api/client'
 import { isNative } from '../platform'
 import WaveformPlayer from '../components/WaveformPlayer'
+import Spinner from '../components/Spinner'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
 
 export default function History() {
   const [items, setItems] = useState<any[]>([])
@@ -19,22 +21,25 @@ export default function History() {
       if (resp.success) {
         setItems(resp.data.items)
         setTotal(resp.data.total)
+        // Load audio lazily for native items
         if (isNative()) {
-          const urls: Record<string, string> = {}
           for (const item of resp.data.items) {
-            if (item.audio_path) {
-              try {
-                urls[item.id] = await getAudioDataUrlForHistory(item.audio_path, item.format || 'wav')
-              } catch (e) {
-                console.warn('Failed to load audio for history item:', item.id, e)
-              }
-            }
+            if (item.audio_path) loadAudioForItem(item)
           }
-          setAudioUrls(urls)
         }
       }
     } catch {} finally {
       setLoading(false)
+    }
+  }
+
+  const loadAudioForItem = async (item: any) => {
+    if (audioUrls[item.id] || !item.audio_path || !isNative()) return
+    try {
+      const url = await getAudioDataUrlForHistory(item.audio_path, item.format || 'wav')
+      setAudioUrls(prev => ({ ...prev, [item.id]: url }))
+    } catch (e) {
+      console.warn('Failed to load audio:', item.id, e)
     }
   }
 
@@ -78,7 +83,11 @@ export default function History() {
           {items.map(item => (
             <div key={item.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md transition-all">
               <button
-                onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                onClick={() => {
+                  const newExpanded = expandedId === item.id ? null : item.id
+                  setExpandedId(newExpanded)
+                  if (newExpanded) loadAudioForItem(item)
+                }}
                 className="w-full p-4 text-left"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -141,7 +150,7 @@ export default function History() {
                             <WaveformPlayer audioSrc={audioUrls[item.id]} height={32} showDownload downloadFilename={`history_${item.id}.${item.format || 'wav'}`} />
                           ) : (
                             <div className="flex items-center justify-center py-3 text-xs text-gray-400">
-                              <svg className="w-3.5 h-3.5 animate-spin mr-1.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                              <Spinner className="w-3.5 h-3.5 mr-1.5" />
                               加载音频中...
                             </div>
                           )
@@ -170,7 +179,7 @@ export default function History() {
                       <WaveformPlayer audioSrc={audioUrls[item.id]} height={32} showDownload downloadFilename={`history_${item.id}.${item.format || 'wav'}`} />
                     ) : (
                       <div className="flex items-center justify-center py-3 text-xs text-gray-400">
-                        <svg className="w-3.5 h-3.5 animate-spin mr-1.5" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                        <Spinner className="w-3.5 h-3.5 mr-1.5" />
                         加载音频中...
                       </div>
                     )
@@ -206,23 +215,11 @@ export default function History() {
         </div>
       )}
 
-      {/* Confirm Delete Modal */}
-      {confirmDeleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmDeleteId(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-semibold text-gray-900 mb-2">确认删除</h3>
-            <p className="text-sm text-gray-500 mb-5">确定删除此记录？删除后无法恢复。</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl transition-all">
-                取消
-              </button>
-              <button onClick={confirmDeleteItem} className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all">
-                删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        open={!!confirmDeleteId}
+        onCancel={() => setConfirmDeleteId(null)}
+        onConfirm={confirmDeleteItem}
+      />
     </div>
   )
 }

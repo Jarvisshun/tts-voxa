@@ -1,5 +1,4 @@
 import { CapacitorSQLite, SQLiteConnection, SQLiteDBConnection } from '@capacitor-community/sqlite'
-import { isNative } from '../platform'
 import { SCHEMA_SQL, MIGRATION_SQL } from './schema'
 
 const DB_NAME = 'tts_voxa'
@@ -18,8 +17,12 @@ function sanitizeRows(values: any[] | undefined): any[] {
 }
 
 export async function initDatabase(): Promise<void> {
-  if (!isNative()) return
   if (initialized) return
+  // Check if jeep-sqlite element exists in DOM (not available on desktop web)
+  if (!document.querySelector('jeep-sqlite')) {
+    initialized = true // Mark as initialized to prevent retries
+    return
+  }
   try {
     const sqlite = new SQLiteConnection(CapacitorSQLite)
     const isConn = (await sqlite.isConnection(DB_NAME, false)).result
@@ -39,19 +42,29 @@ export async function initDatabase(): Promise<void> {
     initialized = true
   } catch (e) {
     console.error('Database init failed:', e)
-    throw e
+    initialized = true // Mark as initialized to prevent retries
   }
 }
 
-async function getDb(): Promise<SQLiteDBConnection> {
+async function getDb(): Promise<SQLiteDBConnection | null> {
   if (!db) {
-    if (isNative() && !initialized) {
-      await initDatabase()
-      if (db) return db
+    if (!initialized) {
+      try {
+        await initDatabase()
+      } catch {
+        // Database not available (e.g. desktop web without jeep-sqlite)
+      }
     }
-    throw new Error('Database not initialized')
+    if (!db) return null
   }
   return db
+}
+
+// Get database or throw if not available (for write operations)
+async function requireDb(): Promise<SQLiteDBConnection> {
+  const d = await getDb()
+  if (!d) throw new Error('Database not available')
+  return d
 }
 
 function genId(): string {
@@ -67,6 +80,7 @@ function genId(): string {
 export async function getProviderApiKey(): Promise<{ api_key: string; api_base: string } | null> {
   try {
     const d = await getDb()
+    if (!d) return null
     const res = await d.query('SELECT api_key, api_base FROM providers WHERE is_default = 1 LIMIT 1')
     const rows = sanitizeRows(res.values)
     return rows[0] || null
@@ -79,6 +93,7 @@ export async function getProviderApiKey(): Promise<{ api_key: string; api_base: 
 export async function getProviders(): Promise<any[]> {
   try {
     const d = await getDb()
+    if (!d) return []
     const res = await d.query('SELECT * FROM providers ORDER BY is_default DESC, created_at DESC')
     return sanitizeRows(res.values).map(row => {
       // Parse models field from JSON string to array
@@ -98,7 +113,7 @@ export async function getProviders(): Promise<any[]> {
 }
 
 export async function addProvider(name: string, apiKey: string, apiBase: string, models: any[], isDefault: boolean): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   const id = genId()
   try {
     if (isDefault) {
@@ -114,7 +129,7 @@ export async function addProvider(name: string, apiKey: string, apiBase: string,
 }
 
 export async function updateProvider(id: string, name: string, apiKey: string, apiBase: string, models: any[], isDefault: boolean): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   try {
     if (isDefault) {
       await d.run('UPDATE providers SET is_default = 0')
@@ -136,7 +151,7 @@ export async function updateProvider(id: string, name: string, apiKey: string, a
 }
 
 export async function deleteProvider(id: string): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run('DELETE FROM providers WHERE id = ?', [id])
 }
 
@@ -146,20 +161,17 @@ export async function insertGeneration(
   id: string, model: string, voice: string, textContent: string,
   audioPath: string, format: string, speed: number, emotion: string | null
 ): Promise<void> {
-  try {
-    const d = await getDb()
-    await d.run(
-      'INSERT INTO generations (id, model, voice, text_content, audio_path, format, speed, emotion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, model, voice, textContent, audioPath, format, speed, emotion]
-    )
-  } catch (e) {
-    console.error('insertGeneration error:', e)
-  }
+  const d = await requireDb()
+  await d.run(
+    'INSERT INTO generations (id, model, voice, text_content, audio_path, format, speed, emotion) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, model, voice, textContent, audioPath, format, speed, emotion]
+  )
 }
 
 export async function getHistory(page: number = 1, limit: number = 20): Promise<{ items: any[]; total: number }> {
   try {
     const d = await getDb()
+    if (!d) return { items: [], total: 0 }
     const offset = (page - 1) * limit
     const countRes = await d.query('SELECT COUNT(*) as cnt FROM generations')
     const countRows = sanitizeRows(countRes.values)
@@ -178,6 +190,7 @@ export async function getHistory(page: number = 1, limit: number = 20): Promise<
 export async function getRecentTasks(limit: number = 20): Promise<any[]> {
   try {
     const d = await getDb()
+    if (!d) return []
     const res = await d.query(
       `SELECT id, 'generation' as source, model as type, text_content as text_preview, 'completed' as status, created_at FROM generations ORDER BY created_at DESC LIMIT ?`,
       [limit]
@@ -190,7 +203,7 @@ export async function getRecentTasks(limit: number = 20): Promise<any[]> {
 }
 
 export async function deleteGeneration(id: string): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run('DELETE FROM generations WHERE id = ?', [id])
 }
 
@@ -199,6 +212,7 @@ export async function deleteGeneration(id: string): Promise<void> {
 export async function getVoices(): Promise<any[]> {
   try {
     const d = await getDb()
+    if (!d) return []
     const res = await d.query('SELECT * FROM voices ORDER BY created_at DESC')
     return sanitizeRows(res.values)
   } catch (e) {
@@ -208,7 +222,7 @@ export async function getVoices(): Promise<any[]> {
 }
 
 export async function saveVoice(id: string, name: string, type: string, voiceId: string, description: string, audioPath: string): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run(
     'INSERT OR REPLACE INTO voices (id, name, type, voice_id, description, audio_path) VALUES (?, ?, ?, ?, ?, ?)',
     [id, name, type, voiceId, description, audioPath]
@@ -216,7 +230,7 @@ export async function saveVoice(id: string, name: string, type: string, voiceId:
 }
 
 export async function deleteVoice(id: string): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run('DELETE FROM voices WHERE id = ?', [id])
 }
 
@@ -225,7 +239,7 @@ export async function deleteVoice(id: string): Promise<void> {
 export async function createBatchJob(
   name: string, texts: string[], voice: string, model: string, format: string, speed: number
 ): Promise<{ job_id: string; total_items: number }> {
-  const d = await getDb()
+  const d = await requireDb()
   const jobId = genId()
   await d.run(
     'INSERT INTO batch_jobs (id, name, total_items, voice, model, format, speed) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -243,6 +257,7 @@ export async function createBatchJob(
 export async function getBatchJobs(): Promise<any[]> {
   try {
     const d = await getDb()
+    if (!d) return []
     const res = await d.query('SELECT * FROM batch_jobs ORDER BY created_at DESC LIMIT 50')
     return sanitizeRows(res.values)
   } catch (e) {
@@ -254,6 +269,7 @@ export async function getBatchJobs(): Promise<any[]> {
 export async function getBatchJobStatus(jobId: string): Promise<any> {
   try {
     const d = await getDb()
+    if (!d) return null
     const jobRes = await d.query('SELECT * FROM batch_jobs WHERE id = ?', [jobId])
     const jobRows = sanitizeRows(jobRes.values)
     const job = jobRows[0]
@@ -267,7 +283,7 @@ export async function getBatchJobStatus(jobId: string): Promise<any> {
 }
 
 export async function updateBatchItemStatus(itemId: string, status: string, audioPath?: string, error?: string): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   if (status === 'completed') {
     await d.run('UPDATE batch_items SET status = ?, audio_path = ? WHERE id = ?', [status, audioPath, itemId])
   } else if (status === 'failed') {
@@ -278,12 +294,12 @@ export async function updateBatchItemStatus(itemId: string, status: string, audi
 }
 
 export async function updateBatchJobProgress(jobId: string, completedItems: number): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run('UPDATE batch_jobs SET completed_items = ? WHERE id = ?', [completedItems, jobId])
 }
 
 export async function updateBatchJobStatus(jobId: string, status: string): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   if (status === 'completed') {
     await d.run("UPDATE batch_jobs SET status = ?, completed_at = datetime('now') WHERE id = ?", [status, jobId])
   } else {
@@ -294,6 +310,7 @@ export async function updateBatchJobStatus(jobId: string, status: string): Promi
 export async function getBatchItemAudioPath(jobId: string, itemIndex: number): Promise<string | null> {
   try {
     const d = await getDb()
+    if (!d) return null
     const res = await d.query(
       'SELECT audio_path FROM batch_items WHERE job_id = ? AND item_index = ?',
       [jobId, itemIndex]
@@ -309,7 +326,7 @@ export async function getBatchItemAudioPath(jobId: string, itemIndex: number): P
 // === Sync helpers ===
 
 export async function upsertBatchJob(job: Record<string, unknown>): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run(
     `INSERT OR REPLACE INTO batch_jobs (id, user_id, name, status, total_items, completed_items, voice, model, format, speed, created_at, completed_at, updated_at, synced)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
@@ -318,7 +335,7 @@ export async function upsertBatchJob(job: Record<string, unknown>): Promise<void
 }
 
 export async function upsertBatchItem(item: Record<string, unknown>): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run(
     `INSERT OR REPLACE INTO batch_items (id, user_id, job_id, item_index, text_content, status, audio_path, error_message, created_at, updated_at, synced)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
@@ -327,7 +344,7 @@ export async function upsertBatchItem(item: Record<string, unknown>): Promise<vo
 }
 
 export async function upsertProvider(provider: Record<string, unknown>): Promise<void> {
-  const d = await getDb()
+  const d = await requireDb()
   await d.run(
     `INSERT OR REPLACE INTO providers (id, user_id, name, api_key, api_base, models, is_default, created_at, updated_at, synced)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
@@ -338,6 +355,7 @@ export async function upsertProvider(provider: Record<string, unknown>): Promise
 export async function getAllBatchItems(): Promise<Record<string, unknown>[]> {
   try {
     const d = await getDb()
+    if (!d) return []
     const res = await d.query('SELECT * FROM batch_items ORDER BY created_at DESC')
     return sanitizeRows(res.values)
   } catch (e) {
@@ -346,9 +364,14 @@ export async function getAllBatchItems(): Promise<Record<string, unknown>[]> {
   }
 }
 
-export async function getUnsyncedRows(table: string): Promise<Record<string, unknown>[]> {
+const VALID_TABLES = ['voices', 'generations', 'batch_jobs', 'batch_items', 'providers'] as const
+type TableName = typeof VALID_TABLES[number]
+
+export async function getUnsyncedRows(table: TableName): Promise<Record<string, unknown>[]> {
+  if (!VALID_TABLES.includes(table)) throw new Error(`Invalid table: ${table}`)
   try {
     const d = await getDb()
+    if (!d) return []
     const res = await d.query(`SELECT * FROM ${table} WHERE synced = 0`)
     return sanitizeRows(res.values)
   } catch (e) {
@@ -357,9 +380,10 @@ export async function getUnsyncedRows(table: string): Promise<Record<string, unk
   }
 }
 
-export async function markSynced(table: string, ids: string[]): Promise<void> {
+export async function markSynced(table: TableName, ids: string[]): Promise<void> {
+  if (!VALID_TABLES.includes(table)) throw new Error(`Invalid table: ${table}`)
   if (!ids.length) return
-  const d = await getDb()
+  const d = await requireDb()
   const placeholders = ids.map(() => '?').join(',')
   await d.run(`UPDATE ${table} SET synced = 1 WHERE id IN (${placeholders})`, ids)
 }

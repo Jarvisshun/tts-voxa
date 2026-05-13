@@ -61,6 +61,14 @@ export function TaskProvider({ children }: { children: ReactNode }) {
   tasksRef.current = tasks
 
   useEffect(() => {
+    const hasActiveBatches = tasks.some(
+      t => t.type === 'batch' && (t.status === 'pending' || t.status === 'running')
+    )
+    if (!hasActiveBatches) {
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null }
+      return
+    }
+
     const pollBatches = async () => {
       const activeBatches = tasksRef.current.filter(t => t.type === 'batch' && (t.status === 'pending' || t.status === 'running'))
       if (activeBatches.length === 0) return
@@ -81,7 +89,7 @@ export function TaskProvider({ children }: { children: ReactNode }) {
 
     pollingRef.current = window.setInterval(pollBatches, 2000)
     return () => { if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null } }
-  }, [updateTask])
+  }, [tasks, updateTask])
 
   return (
     <TaskContext.Provider value={{ tasks, addTask, updateTask, removeTask, refreshTasks }}>

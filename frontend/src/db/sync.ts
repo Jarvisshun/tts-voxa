@@ -27,10 +27,6 @@ export async function pullFromCloud(): Promise<void> {
       pullProviders(user.id),
     ])
 
-    // Dynamic import to avoid loading on web
-    const { isNative } = await import('../platform')
-    if (!isNative()) return
-
     const db = await import('./database')
 
     // Merge voices: insert/update from remote
@@ -105,26 +101,32 @@ export async function pushToCloud(): Promise<void> {
   if (!user) return
 
   try {
-    const { isNative } = await import('../platform')
-    if (!isNative()) return
-
     const db = await import('./database')
 
-    // Get all local data (we push everything since we track by updated_at)
-    const [localVoices, localGenerations, localBatchJobs, localBatchItems, localProviders] = await Promise.all([
-      db.getVoices(),
-      db.getHistory(1, 1000),
-      db.getBatchJobs(),
-      db.getAllBatchItems(),
-      db.getProviders(),
+    // Only push rows that haven't been synced yet
+    const [unsyncedVoices, unsyncedGens, unsyncedJobs, unsyncedItems, unsyncedProviders] = await Promise.all([
+      db.getUnsyncedRows('voices'),
+      db.getUnsyncedRows('generations'),
+      db.getUnsyncedRows('batch_jobs'),
+      db.getUnsyncedRows('batch_items'),
+      db.getUnsyncedRows('providers'),
     ])
 
     await Promise.all([
-      pushVoices(user.id, localVoices),
-      pushGenerations(user.id, localGenerations.items || []),
-      pushBatchJobs(user.id, localBatchJobs),
-      pushBatchItems(user.id, localBatchItems),
-      pushProviders(user.id, localProviders),
+      pushVoices(user.id, unsyncedVoices),
+      pushGenerations(user.id, unsyncedGens),
+      pushBatchJobs(user.id, unsyncedJobs),
+      pushBatchItems(user.id, unsyncedItems),
+      pushProviders(user.id, unsyncedProviders),
+    ])
+
+    // Mark pushed rows as synced
+    await Promise.all([
+      db.markSynced('voices', unsyncedVoices.map(r => r.id as string)),
+      db.markSynced('generations', unsyncedGens.map(r => r.id as string)),
+      db.markSynced('batch_jobs', unsyncedJobs.map(r => r.id as string)),
+      db.markSynced('batch_items', unsyncedItems.map(r => r.id as string)),
+      db.markSynced('providers', unsyncedProviders.map(r => r.id as string)),
     ])
   } catch (e) {
     console.error('Push to cloud failed:', e)

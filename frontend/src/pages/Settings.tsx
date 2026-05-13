@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { getVersion, checkUpdate } from '../api/client'
 import type { UpdateInfo } from '../api/client'
 import { isNative } from '../platform'
@@ -6,21 +6,11 @@ import UpdateLog from './UpdateLog'
 import { initSupabase, signUp, signIn, signInWithMagicLink, signOut, getCurrentUser, onAuthStateChange } from '../api/supabase'
 import { syncAll } from '../db/sync'
 import type { User } from '@supabase/supabase-js'
+import Spinner from '../components/Spinner'
+import ConfirmDeleteModal from '../components/ConfirmDeleteModal'
+import type { Provider, ModelConfig } from '../api/types'
 
-interface Provider {
-  id: string
-  name: string
-  api_key: string
-  api_base: string
-  models: Array<{ id: string; name: string; type?: string }>
-  is_default: boolean
-}
-
-interface ModelEntry {
-  id: string
-  name: string
-  type: string
-}
+const DEFAULT_API_BASE = 'https://token-plan-cn.xiaomimimo.com/v1'
 
 export default function Settings() {
   const [providers, setProviders] = useState<Provider[]>([])
@@ -29,7 +19,7 @@ export default function Settings() {
 
   const [name, setName] = useState('')
   const [apiKey, setApiKey] = useState('')
-  const [apiBase, setApiBase] = useState('https://token-plan-cn.xiaomimimo.com/v1')
+  const [apiBase, setApiBase] = useState(DEFAULT_API_BASE)
   const [modelsText, setModelsText] = useState('')
   const [isDefault, setIsDefault] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -55,8 +45,10 @@ export default function Settings() {
   const [authError, setAuthError] = useState<string | null>(null)
   const [authLoading, setAuthLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [syncResult, setSyncResult] = useState<string | null>(null)
   const [showSupabaseConfig, setShowSupabaseConfig] = useState(false)
   const [showAuthPassword, setShowAuthPassword] = useState(false)
+  const unsubRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     getVersion().then(d => setCurrentVersion(d.version)).catch(() => {})
@@ -69,9 +61,11 @@ export default function Settings() {
     if (url && key) {
       initSupabase(url, key)
       setSupabaseConnected(true)
-      getCurrentUser().then(setAuthUser)
-      const unsub = onAuthStateChange(setAuthUser)
-      return unsub
+      let cancelled = false
+      getCurrentUser().then(u => { if (!cancelled) setAuthUser(u) })
+      const unsub = onAuthStateChange(u => { if (!cancelled) setAuthUser(u) })
+      unsubRef.current = unsub
+      return () => { cancelled = true; unsub() }
     }
   }, [])
 
@@ -127,11 +121,13 @@ export default function Settings() {
     initSupabase(supabaseUrl.trim(), supabaseKey.trim())
     setSupabaseConnected(true)
     getCurrentUser().then(setAuthUser)
-    const unsub = onAuthStateChange(setAuthUser)
-    return unsub
+    unsubRef.current?.()
+    unsubRef.current = onAuthStateChange(setAuthUser)
   }
 
   const handleDisconnectSupabase = () => {
+    unsubRef.current?.()
+    unsubRef.current = null
     localStorage.removeItem('supabase_url')
     localStorage.removeItem('supabase_key')
     setSupabaseConnected(false)
@@ -172,14 +168,17 @@ export default function Settings() {
 
   const handleSync = async () => {
     setSyncing(true)
+    setSyncResult(null)
     try {
       await syncAll()
+      setSyncResult('同步完成')
     } catch (e) {
       console.error('Sync failed:', e)
+      setSyncResult('同步失败')
     } finally { setSyncing(false) }
   }
 
-  const parseModels = (): ModelEntry[] => {
+  const parseModels = (): ModelConfig[] => {
     return modelsText.split(',').map(s => s.trim()).filter(Boolean).map(id => ({ id, name: id, type: 'basic' }))
   }
 
@@ -247,14 +246,14 @@ export default function Settings() {
     setEditingId(null)
     setName('')
     setApiKey('')
-    setApiBase('https://token-plan-cn.xiaomimimo.com/v1')
+    setApiBase(DEFAULT_API_BASE)
     setModelsText('')
     setIsDefault(true)
     setTestResult(null)
   }
 
   const PRESETS = [
-    { name: '小米 MiMo', api_base: 'https://token-plan-cn.xiaomimimo.com/v1', models: 'mimo-v2.5-tts, mimo-v2-tts, mimo-v2.5-tts-voiceclone, mimo-v2.5-tts-voicedesign' },
+    { name: '小米 MiMo', api_base: DEFAULT_API_BASE, models: 'mimo-v2.5-tts, mimo-v2-tts, mimo-v2.5-tts-voiceclone, mimo-v2.5-tts-voicedesign' },
     { name: 'OpenAI', api_base: 'https://api.openai.com/v1', models: 'tts-1, tts-1-hd' },
     { name: '自定义', api_base: '', models: '' },
   ]
@@ -382,10 +381,7 @@ export default function Settings() {
                     >
                       {syncing ? (
                         <>
-                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
+                          <Spinner />
                           同步中...
                         </>
                       ) : '立即同步'}
@@ -398,6 +394,9 @@ export default function Settings() {
                     </button>
                   </div>
                 </div>
+                {syncResult && (
+                  <p className="mt-2 text-xs text-emerald-500">{syncResult}</p>
+                )}
               </div>
             )}
           </div>
@@ -552,10 +551,7 @@ export default function Settings() {
             >
               {checkingUpdate ? (
                 <>
-                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
+                  <Spinner />
                   检查中...
                 </>
               ) : '检查更新'}
@@ -616,23 +612,12 @@ export default function Settings() {
       {/* Update Log Modal */}
       {showUpdateLog && <UpdateLog onClose={() => setShowUpdateLog(false)} />}
 
-      {/* Confirm Delete Modal */}
-      {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmDelete(null)}>
-          <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-semibold text-gray-900 mb-2">确认删除</h3>
-            <p className="text-sm text-gray-500 mb-5">确定删除此服务商？删除后无法恢复。</p>
-            <div className="flex gap-2 justify-end">
-              <button onClick={() => setConfirmDelete(null)} className="px-4 py-2 text-sm text-gray-500 hover:bg-gray-100 rounded-xl transition-all">
-                取消
-              </button>
-              <button onClick={confirmDeleteProvider} className="px-4 py-2 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition-all">
-                删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDeleteModal
+        open={!!confirmDelete}
+        message="确定删除此服务商？删除后无法恢复。"
+        onCancel={() => setConfirmDelete(null)}
+        onConfirm={confirmDeleteProvider}
+      />
     </div>
   )
 }

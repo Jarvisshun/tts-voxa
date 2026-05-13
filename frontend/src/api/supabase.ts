@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js'
 let supabase: SupabaseClient | null = null
 
 export function initSupabase(url: string, anonKey: string): SupabaseClient {
+  if (supabase) return supabase
   supabase = createClient(url, anonKey)
   return supabase
 }
@@ -28,7 +29,16 @@ export async function signUp(email: string, password: string): Promise<{ user: U
 export async function signIn(email: string, password: string): Promise<{ user: User | null; error: string | null }> {
   if (!supabase) return { user: null, error: 'Supabase not initialized' }
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-  if (error) return { user: null, error: error.message }
+  if (error) {
+    const msg = error.message
+    if (msg.includes('confirm') || msg.includes('not confirmed') || msg.includes('Email not confirmed')) {
+      return { user: null, error: '邮箱未验证。请在 Supabase 后台关闭邮箱确认：Authentication → Providers → Email → 关掉 "Confirm email"' }
+    }
+    return { user: null, error: msg }
+  }
+  if (!data.session) {
+    return { user: null, error: '登录成功但未获得会话。请在 Supabase 后台关闭邮箱确认：Authentication → Providers → Email → 关掉 "Confirm email"' }
+  }
   return { user: data.user, error: null }
 }
 
@@ -45,6 +55,9 @@ export async function signOut(): Promise<void> {
 
 export async function getCurrentUser(): Promise<User | null> {
   if (!supabase) return null
+  // Try local session first (fast, no network), then fall back to server verify
+  const { data: sessionData } = await supabase.auth.getSession()
+  if (sessionData.session?.user) return sessionData.session.user
   const { data } = await supabase.auth.getUser()
   return data.user
 }
@@ -93,13 +106,17 @@ export async function encryptData(data: string, password: string): Promise<strin
 }
 
 export async function decryptData(encryptedBase64: string, password: string): Promise<string> {
-  const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0))
-  const salt = combined.slice(0, 16)
-  const iv = combined.slice(16, 28)
-  const ciphertext = combined.slice(28)
-  const key = await deriveKey(password, salt)
-  const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
-  return new TextDecoder().decode(decrypted)
+  try {
+    const combined = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0))
+    const salt = combined.slice(0, 16)
+    const iv = combined.slice(16, 28)
+    const ciphertext = combined.slice(28)
+    const key = await deriveKey(password, salt)
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
+    return new TextDecoder().decode(decrypted)
+  } catch (e) {
+    throw new Error('解密失败：数据可能已损坏或密码不正确')
+  }
 }
 
 // === Audio Storage ===
@@ -140,35 +157,63 @@ export async function deleteAudio(userId: string, filename: string): Promise<boo
 
 export async function pushVoices(userId: string, voices: Record<string, unknown>[]): Promise<void> {
   if (!supabase || !voices.length) return
-  const rows = voices.map(v => ({ ...v, user_id: userId, updated_at: new Date().toISOString() }))
+  const rows = voices.map(v => ({
+    id: v.id, user_id: userId, name: v.name, type: v.type,
+    voice_id: v.voice_id, description: v.description, audio_path: v.audio_path,
+    created_at: v.created_at, updated_at: new Date().toISOString(),
+  }))
   const { error } = await supabase.from('voices').upsert(rows, { onConflict: 'id' })
   if (error) console.error('pushVoices error:', error.message)
 }
 
 export async function pushGenerations(userId: string, generations: Record<string, unknown>[]): Promise<void> {
   if (!supabase || !generations.length) return
-  const rows = generations.map(g => ({ ...g, user_id: userId, updated_at: new Date().toISOString() }))
+  const rows = generations.map(g => ({
+    id: g.id, user_id: userId, model: g.model, voice: g.voice,
+    text_content: g.text_content, audio_path: g.audio_path,
+    format: g.format, speed: g.speed, emotion: g.emotion, duration: g.duration,
+    created_at: g.created_at, updated_at: new Date().toISOString(),
+  }))
   const { error } = await supabase.from('generations').upsert(rows, { onConflict: 'id' })
   if (error) console.error('pushGenerations error:', error.message)
 }
 
 export async function pushBatchJobs(userId: string, jobs: Record<string, unknown>[]): Promise<void> {
   if (!supabase || !jobs.length) return
-  const rows = jobs.map(j => ({ ...j, user_id: userId, updated_at: new Date().toISOString() }))
+  const rows = jobs.map(j => ({
+    id: j.id, user_id: userId, name: j.name, status: j.status,
+    total_items: j.total_items, completed_items: j.completed_items,
+    voice: j.voice, model: j.model, format: j.format, speed: j.speed,
+    created_at: j.created_at, completed_at: j.completed_at, updated_at: new Date().toISOString(),
+  }))
   const { error } = await supabase.from('batch_jobs').upsert(rows, { onConflict: 'id' })
   if (error) console.error('pushBatchJobs error:', error.message)
 }
 
 export async function pushBatchItems(userId: string, items: Record<string, unknown>[]): Promise<void> {
   if (!supabase || !items.length) return
-  const rows = items.map(i => ({ ...i, user_id: userId, updated_at: new Date().toISOString() }))
+  const rows = items.map(i => ({
+    id: i.id, user_id: userId, job_id: i.job_id, item_index: i.item_index,
+    text_content: i.text_content, status: i.status, audio_path: i.audio_path,
+    error_message: i.error_message, created_at: i.created_at, updated_at: new Date().toISOString(),
+  }))
   const { error } = await supabase.from('batch_items').upsert(rows, { onConflict: 'id' })
   if (error) console.error('pushBatchItems error:', error.message)
 }
 
 export async function pushProviders(userId: string, providers: Record<string, unknown>[]): Promise<void> {
   if (!supabase || !providers.length) return
-  const rows = providers.map(p => ({ ...p, user_id: userId, updated_at: new Date().toISOString() }))
+  const rows = providers.map(p => ({
+    id: p.id,
+    user_id: userId,
+    name: p.name,
+    api_key: p.api_key,
+    api_base: p.api_base,
+    models: typeof p.models === 'string' ? p.models : JSON.stringify(p.models || []),
+    is_default: p.is_default === true || p.is_default === 1 ? 1 : 0,
+    created_at: p.created_at,
+    updated_at: new Date().toISOString(),
+  }))
   const { error } = await supabase.from('providers').upsert(rows, { onConflict: 'id' })
   if (error) console.error('pushProviders error:', error.message)
 }

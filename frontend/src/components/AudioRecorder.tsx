@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import WaveSurfer from 'wavesurfer.js'
 import { blobToWavFile, base64ToBytes, formatSeconds } from '../utils/audio'
 import { isNative } from '../platform'
+import ErrorMessage from './ErrorMessage'
 
 interface AudioRecorderProps {
   onRecorded: (file: File) => void
@@ -178,30 +179,20 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
     try {
       const mic = await getTtsVoxaMic()
       const result = await mic.stopMicRecording()
-
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-      if (cancelAnimRef.current) { cancelAnimRef.current(); cancelAnimRef.current = null }
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      setState('recorded')
 
       if (result.base64) {
         const bytes = base64ToBytes(result.base64)
         const blob = new Blob([bytes], { type: 'audio/aac' })
         blobRef.current = blob
       }
-
-      setState('recorded')
     } catch (e: any) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current)
-        timerRef.current = null
-      }
-      if (cancelAnimRef.current) { cancelAnimRef.current(); cancelAnimRef.current = null }
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
       setState('idle')
       setError(e.message || '录音停止失败')
+    } finally {
+      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+      if (cancelAnimRef.current) { cancelAnimRef.current(); cancelAnimRef.current = null }
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
     }
   }
 
@@ -255,6 +246,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
           const url = URL.createObjectURL(blob)
           ws.load(url)
           ws.on('ready', () => URL.revokeObjectURL(url))
+          ws.on('error', () => URL.revokeObjectURL(url))
           wsRef.current = ws
         }
 
@@ -429,14 +421,7 @@ export default function AudioRecorder({ onRecorded }: AudioRecorderProps) {
         )}
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-red-600 text-xs flex items-center gap-2">
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-          </svg>
-          {error}
-        </div>
-      )}
+      {error && <ErrorMessage message={error} className="text-xs p-3" />}
     </div>
   )
 }
