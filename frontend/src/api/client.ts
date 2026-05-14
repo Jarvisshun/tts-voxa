@@ -6,6 +6,7 @@ import { scheduleBackgroundSync } from '../db/sync'
 let _mimoApi: typeof import('./mimoApi') | null = null
 let _db: typeof import('../db/database') | null = null
 let _audioStorage: typeof import('../storage/audioStorage') | null = null
+let _localDbAvailable: boolean | null = null
 
 async function getMimoApi() {
   if (!_mimoApi) _mimoApi = await import('./mimoApi')
@@ -18,6 +19,13 @@ async function getDb() {
 async function getAudioStorage() {
   if (!_audioStorage) _audioStorage = await import('../storage/audioStorage')
   return _audioStorage
+}
+
+// Check if local SQLite database is available (works on both native and desktop with jeep-sqlite)
+async function useLocalDb(): Promise<boolean> {
+  if (_localDbAvailable !== null) return _localDbAvailable
+  _localDbAvailable = !!document.querySelector('jeep-sqlite')
+  return _localDbAvailable
 }
 
 export type { TTSRequest, TTSResponse, VoiceDesignRequest, BatchCreateRequest, UpdateInfo }
@@ -95,7 +103,7 @@ export async function cloneSave(
   audioFile: File,
   name: string
 ): Promise<{ success: boolean; data: { voice_id: string; name: string } }> {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const voiceId = `voice_${crypto.randomUUID().slice(0, 12)}`
     const base64 = await fileToBase64(audioFile)
     const format = audioFile.name.split('.').pop() || 'wav'
@@ -124,7 +132,7 @@ export async function designVoice(req: VoiceDesignRequest): Promise<TTSResponse>
 }
 
 export async function createBatch(req: BatchCreateRequest) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const d = await getDb()
     const result = await d.createBatchJob(req.name, req.texts, req.voice || 'mimo_default', req.model || 'mimo-v2.5-tts', req.format || 'wav', req.speed || 1.0)
     processBatchNative(result.job_id).catch(e => console.error('Batch processing failed:', e))
@@ -180,7 +188,7 @@ async function insertBatchGeneration(id: string, model: string, voice: string, t
 }
 
 export async function getBatchStatus(jobId: string) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const data = await (await getDb()).getBatchJobStatus(jobId)
     return { success: true, data }
   }
@@ -208,7 +216,7 @@ export async function getPresets() {
 }
 
 export async function getModels() {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const providers = await (await getDb()).getProviders()
     const models: Array<{ id: string; name: string; type: string; provider?: string }> = []
     for (const p of providers) {
@@ -228,7 +236,7 @@ export async function getModels() {
 }
 
 export async function getHistory(page = 1, limit = 20) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const data = await (await getDb()).getHistory(page, limit)
     return { success: true, data }
   }
@@ -238,7 +246,7 @@ export async function getHistory(page = 1, limit = 20) {
 }
 
 export async function getRecentTasks(limit = 20) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const data = await (await getDb()).getRecentTasks(limit)
     return { success: true, data }
   }
@@ -246,7 +254,7 @@ export async function getRecentTasks(limit = 20) {
 }
 
 export async function getBatchList() {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const data = await (await getDb()).getBatchJobs()
     return { success: true, data }
   }
@@ -258,7 +266,7 @@ export function getBatchItemAudioUrl(jobId: string, itemIndex: number): string {
 }
 
 export async function getBatchItemAudioDataUrl(jobId: string, itemIndex: number): Promise<string> {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const path = await (await getDb()).getBatchItemAudioPath(jobId, itemIndex)
     if (!path) return ''
     const format = path.split('.').pop() || 'wav'
@@ -278,7 +286,7 @@ export async function checkUpdate() {
 }
 
 export async function getProviders() {
-  if (isNative()) {
+  if (await useLocalDb()) {
     const data = await (await getDb()).getProviders()
     return { success: true, data }
   }
@@ -286,7 +294,7 @@ export async function getProviders() {
 }
 
 export async function addProvider(name: string, apiKey: string, apiBase: string, models: ModelConfig[], isDefault: boolean) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     await (await getDb()).addProvider(name, apiKey, apiBase, models, isDefault)
     scheduleBackgroundSync()
     return { success: true }
@@ -298,7 +306,7 @@ export async function addProvider(name: string, apiKey: string, apiBase: string,
 }
 
 export async function updateProvider(id: string, name: string, apiKey: string, apiBase: string, models: ModelConfig[], isDefault: boolean) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     await (await getDb()).updateProvider(id, name, apiKey, apiBase, models, isDefault)
     scheduleBackgroundSync()
     return { success: true }
@@ -310,7 +318,7 @@ export async function updateProvider(id: string, name: string, apiKey: string, a
 }
 
 export async function deleteProvider(id: string) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     await (await getDb()).deleteProvider(id)
     scheduleBackgroundSync()
     return { success: true }
@@ -348,14 +356,14 @@ function fileToBase64(file: File): Promise<string> {
 }
 
 export async function getAudioDataUrlForHistory(audioPath: string, format: string): Promise<string> {
-  if (isNative()) {
+  if (await useLocalDb()) {
     return (await getAudioStorage()).getAudioDataUrl(audioPath, format)
   }
   return `${API_BASE}/history/${audioPath}/audio`
 }
 
 export async function deleteHistory(id: string) {
-  if (isNative()) {
+  if (await useLocalDb()) {
     await (await getDb()).deleteGeneration(id)
     return { success: true }
   }
