@@ -54,4 +54,7 @@ frontend/android/app/tts-voxa.keystore
 
 # Backend static (build artifacts)
 backend/static/
+
+# Release binaries
+releases/
 .gstack/

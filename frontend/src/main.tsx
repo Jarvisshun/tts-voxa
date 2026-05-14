@@ -2,28 +2,25 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { isNative } from './platform'
 
 async function bootstrap() {
-  if (isNative()) {
-    // Register jeep-sqlite web component from local package (not CDN — CDN blocked in China)
-    try {
-      const { defineCustomElements } = await import('jeep-sqlite/loader')
-      defineCustomElements(window)
-      const el = document.createElement('jeep-sqlite')
-      el.style.cssText = 'position:absolute;display:block;width:0;height:0'
-      document.body.appendChild(el)
-    } catch (e) {
-      console.warn('jeep-sqlite load failed:', e)
-    }
+  // Register jeep-sqlite web component (needed for both native and desktop)
+  try {
+    const { defineCustomElements } = await import('jeep-sqlite/loader')
+    defineCustomElements(window)
+    const el = document.createElement('jeep-sqlite')
+    el.style.cssText = 'position:absolute;display:block;width:0;height:0'
+    document.body.appendChild(el)
+  } catch (e) {
+    console.warn('jeep-sqlite load failed:', e)
+  }
 
-    // Must not prevent React from mounting if DB init fails
-    try {
-      const { initDatabase } = await import('./db/database')
-      await initDatabase()
-    } catch (e) {
-      console.error('Database init failed, app will run without local DB:', e)
-    }
+  // Initialize database (works on native via CapacitorSQLite, on desktop via jeep-sqlite/IndexedDB)
+  try {
+    const { initDatabase } = await import('./db/database')
+    await initDatabase()
+  } catch (e) {
+    console.error('Database init failed, app will run without local DB:', e)
   }
 
   // Auto-sync with Supabase if configured (works on all platforms)
