@@ -49,6 +49,7 @@ subprocess.check_call([
     "--exclude-module", "nbformat",
     "--exclude-module", "nbconvert",
     "--exclude-module", "notebook",
+    "--add-data", "../VERSION;.",
     "--add-data", "static;static",
     "--add-data", "routers;routers",
     "--add-data", "services;services",
